@@ -4,6 +4,7 @@ The `types` module contains a utility function used for determining and
 comparing the types of `pydantic fields.
 """
 
+import typing
 from typing import Any, Tuple, Union, TYPE_CHECKING, get_origin
 
 if TYPE_CHECKING:
@@ -34,13 +35,25 @@ def is_field_a(
     # Create tuple if only one type was provided
     if not isinstance(types, tuple):
         types = (types,)
-
-    if field.annotation.__name__ == "Optional":
-        # Optional[T] is equivalent to Union[T, None]
-        field_type = field.annotation.__args__[0]
+    
+    if field.annotation is None:
+        default = field.get_default()
+        if default is None:
+            return False
+        field_type = default.__class__
     else:
-        # Get field type, or origin if applicable
-        field_type = get_origin(field.annotation) or field.annotation
+        if issubclass(field.annotation.__class__, typing._UnionGenericAlias): # type: ignore
+            field_type = None
+            # Optional[T] is equivalent to Union[T, None]
+            for t in field.annotation.__args__:
+                if t is type(None):
+                    continue
+                if field_type is not None: # multiple types found
+                    return False
+                field_type = t
+        else:
+            # Get field type, or origin if applicable
+            field_type = get_origin(field.annotation) or field.annotation
 
     # Check `isinstance` and `issubclass` validity
     # In order for `isinstance` and `issubclass` to be valid, all arguments
@@ -55,6 +68,7 @@ def is_field_a(
     )
 
 def get_field_type(field: "FieldInfo") -> type:
+    assert field.annotation is not None, "Field annotation cannot be None"
     if field.annotation.__name__ == "Optional":
         return field.annotation.__args__[0]
     return get_origin(field.annotation) or field.annotation

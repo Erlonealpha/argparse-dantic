@@ -30,15 +30,18 @@ def parse_field(
     Returns:
         Optional[utils.pydantic.PydanticValidator]: Possible validator method.
     """
+    assert field.argument_fields is not None
+    assert field.dest is not None
+
     # Add Standard Field
     parser.add_argument(
         *utils.arguments.names(field),
         action=actions._StoreAction,
-        help=field.help or utils.arguments.description(field),
-        dest=field.alias,
-        metavar=field.alias.upper(),
-        required=bool(field.required),
-        model=field
+        help=utils.arguments.normalize(field.argument_fields.help) or utils.arguments.help(field),
+        dest=field.dest,
+        metavar=field.argument_fields.metavar or field.dest.upper(),
+        required=bool(field.argument_fields.required),
+        field=field
     )
 
     # Construct and Return Validator

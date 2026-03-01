@@ -31,7 +31,7 @@ def should_parse(field: "FieldInfo") -> bool:
 
 def parse_field(
     parser: "ArgumentParser",
-    field: "FieldInfo",
+    field: "FieldInfo"
 ) -> Optional[utils.pydantic.PydanticValidator]:
     """Adds boolean pydantic field to argument parser.
 
@@ -42,13 +42,14 @@ def parse_field(
     Returns:
         Optional[utils.pydantic.PydanticValidator]: Possible validator method.
     """
+    assert field.argument_fields is not None
     # Compute Argument Intrinsics
-    is_inverted = not field.required and bool(field.get_default())
+    is_inverted = not field.argument_fields.required and bool(field.get_default())
 
     # Determine Argument Properties
     action = (
         actions.BooleanOptionalAction
-        if field.required
+        if field.argument_fields.required
         else actions._StoreFalseAction
         if is_inverted
         else actions._StoreTrueAction
@@ -58,10 +59,10 @@ def parse_field(
     parser.add_argument(
         *utils.arguments.names(field, is_inverted),
         action=action,
-        help=field.help or utils.arguments.description(field),
-        dest=field.alias,
-        required=bool(field.required),
-        model=field
+        help=utils.arguments.normalize(field.argument_fields.help) or utils.arguments.help(field),
+        dest=field.dest,
+        required=bool(field.argument_fields.required),
+        field=field
     )
 
     # Construct and Return Validator

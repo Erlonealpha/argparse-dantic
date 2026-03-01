@@ -1,10 +1,7 @@
 import re
 import argparse
-from argparse_dantic._argparse import actions
 from gettext import gettext as _, ngettext
-from typing import TypeVar
-
-ActionT = TypeVar("ActionT", bound=actions.Action)
+from . import actions
 
 
 class _ActionsContainer(object):
@@ -127,7 +124,7 @@ class _ActionsContainer(object):
         action = action_class(**kwargs)
 
         # raise an error if the action type is not callable
-        type_func = self._registry_get('type', action.type, action.type)
+        type_func = self._registry_get('type', action.type, action.type) # type: ignore
         if not callable(type_func):
             raise ValueError('%r is not callable' % (type_func,))
 
@@ -140,7 +137,7 @@ class _ActionsContainer(object):
         # raise an error if the metavar does not match the type
         if hasattr(self, "_get_formatter"):
             try:
-                self._get_formatter()._format_args(action, None)
+                self._get_formatter()._format_args(action, None) # type: ignore
             except TypeError:
                 raise ValueError("length of metavar tuple does not match nargs")
 
@@ -269,7 +266,7 @@ class _ActionsContainer(object):
             dest = dest_option_string.lstrip(self.prefix_chars)
             if not dest:
                 msg = _('dest= is required for options like %r')
-                raise ValueError(msg % option_string)
+                raise ValueError(msg % option_string) # type: ignore
             dest = dest.replace('-', '_')
 
         # return the updated keyword arguments
@@ -288,7 +285,7 @@ class _ActionsContainer(object):
             msg = _('invalid conflict_resolution value: %r')
             raise ValueError(msg % self.conflict_handler)
 
-    def _check_conflict(self, action: ActionT):
+    def _check_conflict(self, action: actions.Action):
 
         # find all options that conflict with this option
         confl_optionals = []
@@ -312,19 +309,19 @@ class _ActionsContainer(object):
         )
         raise argparse.ArgumentError(action, message % conflict_string)
 
-    def _handle_conflict_resolve(self, action: ActionT, conflicting_actions: list[tuple[str, ActionT]]):
+    def _handle_conflict_resolve(self, action: actions.Action, conflicting_actions: list[tuple[str, actions.Action]]):
 
         # remove all conflicting options
         for option_string, action in conflicting_actions:
 
             # remove the conflicting option
-            action.option_strings.remove(option_string)
+            action.option_strings.remove(option_string) # type: ignore
             self._option_string_actions.pop(option_string, None)
 
             # if the option now has no option string, remove it from the
             # container holding it
             if not action.option_strings:
-                action.container._remove_action(action)
+                action.container._remove_action(action) # type: ignore
 
 
 class _ArgumentGroup(_ActionsContainer):
@@ -340,7 +337,7 @@ class _ArgumentGroup(_ActionsContainer):
 
         # group attributes
         self.title = title
-        self._group_actions: list[ActionT] = []
+        self._group_actions: list[actions.Action] = []
 
         # share most attributes with the container
         self._registries = container._registries
@@ -377,7 +374,7 @@ class _MutuallyExclusiveGroup(_ArgumentGroup):
         self.required = required
         self._container: _ActionsContainer = container
 
-    def _add_action(self, action: ActionT):
+    def _add_action(self, action: actions.Action):
         if action.required:
             msg = _('mutually exclusive arguments must be optional')
             raise ValueError(msg)

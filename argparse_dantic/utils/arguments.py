@@ -20,14 +20,25 @@ def names(field: "FieldInfo", invert: bool = False) -> list[str]:
     Returns:
         list[str]: Standardised names for the argument.
     """
+    dest_prefix = field.dest_prefix
+    aliases_prefix = field.aliases_prefix
     # Add any custom aliases first
     # We trust that the user has provided these correctly
+    def alias_flag(alias: str) -> str:
+        if not invert and not alias.startswith("-"):
+            return f"{aliases_prefix}{alias}"
+        elif invert and not alias.startswith("-"):
+            return f"{aliases_prefix}no-{alias}"
+        else:
+            return alias
     flags: list[str] = []
-    flags.extend(field.aliases)
+    flags.extend(map(alias_flag, field.aliases))
 
+    assert field.dest is not None
     # Construct prefix, prepend it, replace '_' with '-'
-    prefix = "--no-" if invert else "--"
-    flags.append(f"{prefix}{field.alias.replace('_', '-')}")
+    dest = field.dest.replace('_', '-') if field.hyphenate_dest else field.dest
+    prefix = f"{dest_prefix}no-" if invert else dest_prefix
+    flags.append(f"{prefix}{dest}")
 
     # Return the standardised name and aliases
     return flags
@@ -46,10 +57,19 @@ def names_command(field: "FieldInfo") -> list[str]:
     flags: list[str] = []
     flags.extend(field.aliases)
 
-    flags.append(field.alias)
+    assert field.dest is not None
+    flags.append(field.dest)
     return flags
 
-def description(field: "FieldInfo") -> str:
+def normalize(name: str | None):
+    if name is None:
+        return None
+    if "%" in name:
+        return name.replace("%", "%%")
+    else:
+        return name
+
+def help(field: "FieldInfo") -> str:
     """Standardises argument description.
 
     Args:
@@ -58,8 +78,10 @@ def description(field: "FieldInfo") -> str:
     Returns:
         str: Standardised description of the argument.
     """
-    # Construct Default String
-    default = f"(default: {field.get_default()})" if not field.required else None
-
+    if field._field_type == "argument":
+        assert field.argument_fields is not None
+        default = f"(default: {field.get_default()})" if not field.argument_fields.required else None
+    else:
+        default = None
     # Return Standardised Description String
-    return " ".join(filter(None, [field.description, default]))
+    return normalize(" ".join(filter(None, [field.description, default]))) # type: ignore

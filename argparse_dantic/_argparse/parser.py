@@ -19,25 +19,27 @@ import sys
 import re
 import pydantic
 import argparse
+import inspect
 
 from rich import get_console
 from rich.console import Console
-from typing import Any, Union, Generic, NoReturn, Optional, Type, TypeVar
+from typing import Any, Union, Generic, NoReturn, Optional, Type, TypeVar, Callable, TYPE_CHECKING
 from gettext import gettext as _, ngettext
 
-from . import actions
+from . import actions, container
+from .. import parsers, utils
 from .help import HelpFormatter, HelpColors
-from .container import _ActionsContainer
-
-from argparse_dantic import parsers, utils
-from argparse_dantic.dantic_types import BaseModel, FieldInfo
+from ..dantic_types import BaseModel, FieldInfo
+from ..dantic_types.basic_config import _DefaultConfig
+from ..dantic_types.groups import _Group as Group, _MutuallyExclusiveGroup as MutuallyExclusiveGroup
+from ..dantic_types.fields import ArgumentFieldInfo
 
 
 # Constants
 PydanticModelT = TypeVar("PydanticModelT", bound=BaseModel)
 
 
-class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[PydanticModelT]):
+class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Generic[PydanticModelT]):
     """Declarative and Typed Argument Parser.
 
     The `ArgumentParser` declaratively generates a command-line interface using
@@ -72,15 +74,14 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
     def __init__(
         self,
         model_class: Type[PydanticModelT],
-        dest: str = "_ROOT_",
         prog: Optional[str] = None,
         usage: Optional[str] = None,
         description: Optional[str] = None,
         version: Optional[str] = None,
         epilog: Optional[str] = None,
-        prefix_chars: str = "-",
-        add_help: bool = True,
-        exit_on_error: bool = True,
+        prefix_chars: str =     None,     # type: ignore
+        add_help: bool =        None,         # type: ignore
+        exit_on_error: bool =   None,    # type: ignore
         console: Optional[Console] = None,
         formatter_class: Type[argparse.HelpFormatter] = HelpFormatter,
     ) -> None:
@@ -95,7 +96,13 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
             add_help (bool): Whether to add a `-h`/`--help` flag.
             exit_on_error (bool): Whether to exit on error.
         """
-        
+
+        if prefix_chars is None:
+            prefix_chars = _DefaultConfig.get("prefix_chars") # type: ignore
+        if add_help is None:
+            add_help = _DefaultConfig.get("add_help") # type: ignore
+        if exit_on_error is None:
+            exit_on_error = _DefaultConfig.get("exit_on_error") # type: ignore
         superinit = super(ArgumentParser, self).__init__
         superinit(
             description=description,
@@ -119,6 +126,7 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         self._positionals = add_group(_('positional arguments'))
         self._optionals = add_group(_('options'))
         self._subparsers = None
+        self._m_groups: dict[int, tuple[Callable, list[container._ArgumentGroup | container._MutuallyExclusiveGroup]]] = {}
 
         # register types
         def identity(string):
@@ -135,6 +143,8 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
 
         # Add Arguments Groups
         self._subcommands: Optional[actions._SubParsersAction] = None
+        self._sub_models: Optional[list["SubModel"]] = None
+        self._remap_names: dict[str, tuple[str,...]] = {}
         self._required_group = self.add_argument_group(ArgumentParser.REQUIRED)
         self._optional_group = self.add_argument_group(ArgumentParser.OPTIONAL)
         self._help_group = self.add_argument_group(ArgumentParser.HELP)
@@ -147,8 +157,13 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
 
         # Add Arguments from Model
         self.model = self._add_model(model_class)
+        self.dest = None
+
+    def _set_dest(self, dest):
+        if self.dest is not None:
+            raise ValueError('dest is already set')
         self.dest = dest
-    
+
     def _get_kwargs(self):
         names = [
             'prog',
@@ -180,7 +195,7 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
             formatter = self._get_formatter()
             positionals = self._get_positional_actions()
             groups = self._mutually_exclusive_groups
-            formatter.add_usage(self.usage, positionals, groups, '')
+            formatter.add_usage(self.usage, positionals, groups, '') # type: ignore
             kwargs['prog'] = formatter.format_help().strip()
 
         # create the parsers action and add it to the positionals list
@@ -510,14 +525,14 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         else:
             extras.extend(arg_strings[start_index:])
             extras_pattern.extend(arg_strings_pattern[start_index:])
-            extras_pattern = ''.join(extras_pattern)
-            assert len(extras_pattern) == len(extras)
+            extras_pattern_str = ''.join(extras_pattern)
+            assert len(extras_pattern_str) == len(extras)
             # consume all positionals
-            arg_strings = [s for s, c in zip(extras, extras_pattern) if c != 'O']
-            arg_strings_pattern = extras_pattern.replace('O', '')
+            arg_strings = [s for s, c in zip(extras, extras_pattern_str) if c != 'O']
+            arg_strings_pattern = extras_pattern_str.replace('O', '')
             stop_index = consume_positionals(0)
             # leave unknown optionals and non-consumed positionals in extras
-            for i, c in enumerate(extras_pattern):
+            for i, c in enumerate(extras_pattern_str):
                 if not stop_index:
                     break
                 if c != 'O':
@@ -557,7 +572,7 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
 
                 # if no actions were used, report the error
                 else:
-                    names = [argparse._get_action_name(action)
+                    names = [argparse._get_action_name(action) or ''
                              for action in group._group_actions
                              if action.help is not argparse.SUPPRESS]
                     msg = _('one of the arguments %s is required')
@@ -915,16 +930,18 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         # Convert Namespace to Dictionary
         arguments = utils.namespaces.to_dict(namespace)
 
+        self._remap_sub_model_fields(arguments)
+
         # Apply Global Data
         self._apply_global_data(self.model, arguments)
-
-        # Apply Action Bind Names
-        self._apply_action_bind_names(self.model, arguments)
 
         # Handle Possible Validation Errors
         try:
             # Convert Namespace to Pydantic Model
             model = self.model.model_validate(arguments)
+
+            # Apply Action Bind Names
+            self._apply_command_bind_names(model, arguments)
 
         except (pydantic.ValidationError) as exc:
             # , pydantic.env_settings.SettingsError
@@ -934,17 +951,36 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
 
         # Return
         return model
+
+    def _remap_sub_model_fields(self, argumens: dict[str, Any]):
+
+        def _iter(dic: dict[str, Any]):
+            dels = []
+            remap = {}
+            for k, v in dic.items():
+                if k in self._remap_names:
+                    dels.append(k)
+                    names = self._remap_names[k]
+                    d = remap
+                    for name in names[:-1]:
+                        if name not in d:
+                            d[name] = {}
+                        d = d[name]
+                    d[names[-1]] = v
+            dic.update(remap)
+            for _k in dels:
+                del dic[_k]
+
+        _iter(argumens)
     
-    def _apply_global_data(self, model: Type[PydanticModelT], arguments: dict[str, Any]):
+    @staticmethod
+    def _apply_global_data(model: Type[PydanticModelT], arguments: dict[str, Any]):
         
-        def _global_check(k, v, model: Type[PydanticModelT], field: Optional[FieldInfo] = None):
-            if field is None:
-                field = model.model_fields[k]
-            if field.global_:
-                if parsers.command.should_parse(field):
-                    raise ValueError(f"Command cannot set been global: {k}")
+        def _global_check(k, v, model: Type[PydanticModelT]):
+            field = model.__pydantic_fields__[k]
+            if field.argument_fields is not None and field.argument_fields.global_:
                 model.global_data[k] = v
-            
+
             if isinstance(v, dict):
                 _iter(v, utils.types.get_field_type(field))
         
@@ -955,26 +991,29 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         _iter(arguments, model)
     
     @staticmethod
-    def _apply_action_bind_names(model: Type[PydanticModelT], arguments: dict[str, Any]) -> None:
-        """Applies action bind names to the namespace."""
-        def _get_binds(model):
-            return getattr(model, "__action_name_binds_names__")
+    def _apply_command_bind_names(model: PydanticModelT, arguments: dict[str, Any]) -> None:
+        """Applies command bind names to the namespace."""
+        def _get_binds(model) -> Optional[list[str]]:
+            return getattr(model, "__command_name_binds_names__")
         
-        def _apply(k: str, v: Union[str, dict[str, Any]], model: Type[PydanticModelT], field: Optional[FieldInfo] = None):
+        def _apply(k: str, v: Union[str, dict[str, Any]], model: PydanticModelT, field: Optional[FieldInfo] = None):
             if field is None:
-                field = model.model_fields[k]
-            # Only apply action bind names to fields that are commands
+                field = model.__pydantic_fields__[k]
+            # Only apply command bind names to fields that are commands
             if parsers.command.should_parse(field):
                 binds = _get_binds(model)
             else:
                 binds = None
             
             if isinstance(v, dict):
-                _iter(v, utils.types.get_field_type(field))
+                _model = getattr(model, k, None)
+                if _model is not None:
+                    _iter(v, _model)
             
             return binds
         
-        def _iter(dic: dict[str, Any], model: Type[PydanticModelT], field = None):
+        def _iter(dic: dict[str, Any], model: PydanticModelT, field = None):
+            binds = None
             bind_k = None
             for k, v in dic.items():
                 binds = _apply(k, v, model, field)
@@ -982,12 +1021,12 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
                     if bind_k is not None:
                         raise ValueError(f"Multiple commands found for {k}")
                     bind_k = k
-            
-            if bind_k:
+
+            if bind_k and binds:
                 for bind in binds:
                     # Apply action bind name to the model
                     setattr(model, bind, bind_k)
-        
+
         _iter(arguments, model)
 
     def add_argument(
@@ -1017,9 +1056,9 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
             group = self._optional_group
 
         # Return Action
-        return group.add_argument(*args, **kwargs)
+        return group.add_argument(*args, **kwargs) # type: ignore
     
-    def _commands(self, model=None) -> argparse._SubParsersAction:
+    def _commands(self, field=None) -> argparse._SubParsersAction:
         """Creates and Retrieves Subcommands Action for the ArgumentParser.
 
         Returns:
@@ -1032,14 +1071,58 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
                 title=ArgumentParser.COMMANDS,
                 action=actions.SubParsersAction,
                 required=True,
-                model=model
+                field=field
             )
 
             # Shuffle Group to the Top for Help Message
             self._action_groups.insert(0, self._action_groups.pop())
 
         # Return
-        return self._subcommands
+        return self._subcommands # type: ignore
+
+    def _add_sub_model(self, prefix: str, connect_char: str, model: Type[PydanticModelT]):
+        if not self._sub_models:
+            self._sub_models = []
+        sub_model = SubModel(self, prefix, connect_char)
+        self._sub_models.append(sub_model)
+        sub_model._add_model(model)
+
+    @staticmethod
+    def __add_group(con: container._ActionsContainer, group: Group | MutuallyExclusiveGroup):
+        groups = []
+        if isinstance(group, MutuallyExclusiveGroup):
+            _group = con.add_mutually_exclusive_group(required = group.required)
+        elif isinstance(group, Group):
+            _group = con.add_argument_group(group.title, group.description)
+        else:
+            raise ValueError(f"Invalid group type: {type(group)}")
+        groups.append(_group)
+
+        for _g in group._groups:
+            groups.extend(ArgumentParser.__add_group(_group, _g))
+        for _g in group._mutually_exclusive_groups:
+            groups.extend(ArgumentParser.__add_group(_group, _g))
+
+        return groups
+
+    def _add_group(self, group: Group | MutuallyExclusiveGroup):
+        p = self._m_groups.get(hash(group))
+        if p is None:
+            groups = self.__add_group(self, group)
+            g = groups[-1]
+            _g = GroupWrapper(self, g)
+            def wrapper(func):
+                def fn(*args, **kwargs):
+                    return func.__func__(_g, *args, **kwargs)
+                return fn
+            add_field = wrapper(self._add_field)
+            self._m_groups[hash(group)] = (add_field, groups)
+        else:
+            add_field, groups = p
+        return add_field
+
+    def _register_remap_names(self, name: str, names: tuple[str,...]):
+        self._remap_names[name] = names
 
     def _add_help_flag(self) -> None:
         """Adds help flag to argparser."""
@@ -1077,15 +1160,25 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         """
         # Initialise validators dictionary
         validators: dict[str, utils.pydantic.PydanticValidator] = {}
-        
+
         # Loop through fields in model
-        for field in model.model_fields.values():
+        for field in model.__pydantic_fields__.values():
+            if field.dest in model.__command_name_binds_names__:
+                # Skip command name binds field
+                continue
+
+            if field.group is not None:
+                add_field = self._add_group(field.group)
+            else:
+                add_field = self._add_field
+
             # Add field
-            validator = self._add_field(field)
-            
-            if field.global_ and field.alias not in model.global_data:
+            validator = add_field(field)
+
+            if field.argument_fields is not None and field.argument_fields.global_ \
+                and field.dest not in model.global_data:
                 # Set default value for global data
-                model.global_data[field.alias] = field.get_default()
+                model.global_data[field.dest] = field.get_default()
 
             # Update validators
             utils.pydantic.update_validators(validators, validator)
@@ -1104,7 +1197,7 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         """
         if parsers.command.should_parse(field):
             # Add Command
-            validator = parsers.command.parse_field(self._commands(field), field, self.console)
+            validator = parsers.command.parse_field(self._commands(field), field, self.console) # type: ignore
 
         elif parsers.boolean.should_parse(field):
             # Add Boolean Field
@@ -1126,20 +1219,28 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
             # Add Enum Field
             validator = parsers.enum.parse_field(self, field)
 
+        elif parsers.model.should_parse(field):
+            # Add Sub-Model Field
+            validator = parsers.model.parse_field(self, field)
+
         else:
             # Add Standard Field
             validator = parsers.standard.parse_field(self, field)
 
+        if getattr(field, "_prefix", None) is not None:
+            assert field.dest is not None
+            self._register_remap_names(field.dest, tuple(field.dest.split(field._connect_char))) # type: ignore
+
         # Return Validator
         return validator
-    
+
     # =======================
     # Help-formatting methods
     # =======================
     def format_usage(self):
         formatter = self._get_formatter()
         formatter.add_usage(self.usage, self._actions,
-                            self._mutually_exclusive_groups)
+                            self._mutually_exclusive_groups) # type: ignore
         return formatter.format_help()
 
     def format_help(self) -> str:
@@ -1151,7 +1252,7 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         # usage
         formatter.add_usage(
             self.usage, self._actions,
-            self._mutually_exclusive_groups
+            self._mutually_exclusive_groups # type: ignore
         )
 
         global_actions = []
@@ -1160,7 +1261,8 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         for action_group in self._action_groups:
             group_actions = action_group._group_actions.copy()
             for i in range(len(group_actions) - 1, -1, -1):
-                if group_actions[i].model is not None and group_actions[i].model.global_:
+                field = group_actions[i].field
+                if field is not None and field.argument_fields is not None and field.argument_fields.global_:
                     global_actions.append(group_actions.pop(i))
             if not group_actions:
                 continue
@@ -1224,3 +1326,91 @@ class ArgumentParser(argparse._AttributeHolder, _ActionsContainer, Generic[Pydan
         args = {'prog': self.prog, 'message': message}
         self._print_message(_('%(prog)s: warning: %(message)s\n') % args)
 
+if TYPE_CHECKING:
+    ArgumentFieldWrapper: Type[ArgumentFieldInfo]
+else:
+    class ArgumentFieldWrapper:
+        def __init__(self, args: tuple[str, FieldInfo]):
+            prefix, field = args
+            self._field = field
+            self.aliases = [prefix + alias for alias in field.aliases]
+
+        def __getattr__(self, name):
+            if name in self.__dict__:
+                return self.__dict__[name]
+            return getattr(self._field, name)
+
+if TYPE_CHECKING:
+    FieldInfoWrapper: Type[FieldInfo]
+else:
+    class FieldInfoWrapper:
+        def __init__(self, args: tuple[str, FieldInfo]):
+            prefix, connect_char, field = args
+            assert field.dest is not None
+            self._field = field
+            self._prefix = prefix
+            self._connect_char = connect_char
+            self.dest = prefix + field.dest
+            self.aliases = [prefix + alias for alias in field.aliases]
+            self.argument_fields = ArgumentFieldWrapper((prefix, field.argument_fields))
+
+        def __getattr__(self, name):
+            if name in self.__dict__:
+                return self.__dict__[name]
+            return getattr(self._field, name)
+
+if TYPE_CHECKING:
+    class SubModel(ArgumentParser):
+        def __init__(self, parser: ArgumentParser, prefix: str, connect_char: str):
+            ...
+else:
+    class SubModel:
+        def __init__(self, parser: ArgumentParser, prefix: str, connect_char: str):
+            self._parser = parser
+            self._prefix = prefix
+            self._connect_char = connect_char
+
+        def _commands(self, *args, **kwargs):
+            raise ValueError("Sub-Models cannot have sub-commands")
+
+        def _add_field(self, field: FieldInfo):
+            return self._parser._add_field(FieldInfoWrapper((self._prefix + self._connect_char, self._connect_char, field)))
+
+        def _func_wrap(self, func):
+            def wrapper(*args, **kwargs):
+                if hasattr(func, "__self__"):
+                    if func.__self__ is self._parser:
+                        return func.__func__(self, *args, **kwargs)
+                return func(*args, **kwargs)
+            return wrapper
+
+        def __getattr__(self, name):
+            if name in self.__dict__:
+                return self.__dict__[name]
+            if name in ("_commands", "_add_field"):
+                return getattr(self._parser, name)
+            val = getattr(self._parser, name)
+            if inspect.ismethod(val):
+                return self._func_wrap(val)
+            return val
+
+class GroupWrapper:
+    def __init__(self, parser: ArgumentParser, group: container._ArgumentGroup):
+        self._parser = parser
+        self._group = group
+
+    def _func_wrap(self, func):
+            def wrapper(*args, **kwargs):
+                if hasattr(func, "__self__"):
+                    if func.__self__ is self._parser:
+                        return func.__func__(self, *args, **kwargs)
+                return func(*args, **kwargs)
+            return wrapper
+
+    def __getattr__(self, name):
+        if name == "add_argument":
+            return self._group.add_argument
+        val = getattr(self._parser, name)
+        if inspect.ismethod(val):
+            return self._func_wrap(val)
+        return val

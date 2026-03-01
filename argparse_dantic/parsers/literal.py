@@ -41,15 +41,16 @@ def parse_field(
     Returns:
         Optional[utils.pydantic.PydanticValidator]: Possible validator method.
     """
+    assert field.argument_fields is not None
     # Extract Choices
     choices = get_args(field.annotation)
 
     # Compute Argument Intrinsics
-    is_flag = len(choices) == 1 and not bool(field.required)
-    is_inverted = is_flag and field.get_default() is not None and field.allow_none
+    is_flag = len(choices) == 1 and not bool(field.argument_fields.required)
+    is_inverted = is_flag and field.get_default() is not None and field.argument_fields.allow_none
 
     # Determine Argument Properties
-    metavar = f"{{{', '.join(str(c) for c in choices)}}}"
+    metavar = field.argument_fields.metavar or f"{{{', '.join(str(c) for c in choices)}}}"
     action = actions._StoreConstAction if is_flag else actions._StoreAction
     const = {} if not is_flag else {"const": None} if is_inverted else {"const": choices[0]}
 
@@ -57,11 +58,11 @@ def parse_field(
     parser.add_argument(
         *utils.arguments.names(field, is_inverted),
         action=action,
-        help=field.help or utils.arguments.description(field),
-        dest=field.alias,
+        help=utils.arguments.normalize(field.argument_fields.help) or utils.arguments.help(field),
+        dest=field.dest,
         metavar=metavar,
-        required=bool(field.required),
-        model=field,
+        required=bool(field.argument_fields.required),
+        field=field,
         **const,  # type: ignore[arg-type]
     )
 

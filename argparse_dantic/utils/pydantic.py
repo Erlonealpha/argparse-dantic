@@ -48,7 +48,12 @@ def as_validator(
     # multiple times when being decorated as a `pydantic` validator. Note that
     # despite the `__validator` function *name* being reused, each instance of
     # the validator function is uniquely constructed for the supplied field.
-    @pydantic.field_validator(field.alias, mode="before")
+    if hasattr(field, "_field"):
+        dest = field._field.dest # type: ignore[union-attr]
+    else:
+        dest = field.dest
+    assert dest is not None
+    @pydantic.field_validator(dest, mode="before")
     def __validator(cls: Type[Any], value: T) -> Union[T, None, Any]:
         if not isinstance(value, str):
             return value
@@ -62,10 +67,10 @@ def as_validator(
     # Rename the validator uniquely for this field to avoid any collisions. The
     # leading `__` and prefix of `pydantic_argparse` should guard against any
     # potential collisions with user defined validators.
-    __validator.__name__ = f"__pydantic_argparse_{field.alias}"
+    __validator.__name__ = f"__pydantic_argparse_{field.dest}"
 
     # Return the constructed validator
-    return __validator
+    return __validator  # type: ignore[return-value]
 
 
 def update_validators(
@@ -107,10 +112,10 @@ def model_with_validators(
         Type[PydanticModelT]: New `pydantic` model type with field validators.
     """
     # Construct New Model with Validators
-    model = pydantic.create_model(
+    model = pydantic.create_model( # type: ignore[no-untyped-call]
         model.__name__,
         __base__=model,
-        __validators__=validators,
+        __validators__=validators, # type: ignore[arg-type]
     )
     
     # # Check if the model is a `BaseSettings`

@@ -6,11 +6,11 @@ function, which parses nested `pydantic` model fields to `ArgumentParser`
 sub-commands.
 """
 
-import pydantic
 from typing import Optional, TYPE_CHECKING
 
 from argparse_dantic import utils
 from argparse_dantic._argparse import actions
+from argparse_dantic.dantic_types.fields import FieldTypes
 
 if TYPE_CHECKING:
     from argparse_dantic import FieldInfo
@@ -27,7 +27,7 @@ def should_parse(field: "FieldInfo") -> bool:
         bool: Whether the field should be parsed as a `command`.
     """
     # Check and Return
-    return utils.types.is_field_a(field, pydantic.BaseModel)
+    return field._field_type == FieldTypes.SUBCOMMAND
 
 
 def parse_field(
@@ -44,18 +44,19 @@ def parse_field(
     Returns:
         Optional[utils.pydantic.PydanticValidator]: Possible validator method.
     """
+    assert field.command_fields is not None
     # Add Command
-    subparser.add_parser(
-        field.alias,
-        dest=field.alias,
-        aliases=field.aliases,
-        prog=field.prog,
-        usage=field.usage,
-        epilog=field.epilog,
-        help=field.help,
+    subparser = subparser.add_parser(
+        field.dest,
+        aliases=field.command_fields.aliases,
+        prog=field.command_fields.prog,
+        usage=field.command_fields.usage,
+        epilog=field.command_fields.epilog,
+        help=field.command_fields.description,
         description=field.description,
         model_class=utils.types.get_field_type(field),
-        prefix_chars=field.prefix_chars,
+        prefix_chars=field.command_fields.prefix_chars,
         exit_on_error=False,  # Allow top level parser to handle exiting 
         console=console,
     )
+    subparser._set_dest(field.dest) # type: ignore

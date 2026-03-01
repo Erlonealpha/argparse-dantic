@@ -8,33 +8,40 @@ Python standard library `argparse` class of the same name.
 
 import argparse
 from gettext import gettext as _
-from typing import Any, Callable, Iterable, Optional, Sequence, Tuple, TypeVar, Union, cast, TYPE_CHECKING
+from typing import Any, Callable, Iterable, Optional, Sequence, Tuple, TypeAlias, Union, cast, TYPE_CHECKING
 
+_ActionType: TypeAlias = Callable[[str], Any] | argparse.FileType | str
 
 if TYPE_CHECKING:
-    from argparse_dantic import BaseModel
+    from argparse_dantic import FieldInfo
     from argparse_dantic import ArgumentParser
-    
-    BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
-# Constants
-T = TypeVar("T")
+def _copy_items(items):
+    if items is None:
+        return []
+    # The copy module is used only in the 'append' and 'append_const'
+    # actions, and it is needed only when the default value isn't a list.
+    # Delay its import for speeding up the common case.
+    if type(items) is list:
+        return items[:]
+    import copy
+    return copy.copy(items)
 
 class Action(argparse.Action):
     if TYPE_CHECKING:
-        option_strings: list[str]
+        option_strings: Sequence[str]
         dest: str
         nargs: Optional[Union[int, str]]
         const: Any
         default: Any
-        type: Optional[Callable[[str], T]]
-        choices: Optional[Iterable[T]]
+        type: Optional[_ActionType]
+        choices: Optional[Iterable]
         required: bool
         help: Optional[str]
         metavar: Optional[Union[str, Tuple[str, ...]]]
         deprecated: bool
-        model: Optional[BaseModelT]
-    
+        field: Optional[FieldInfo]
+
     def __init__(
         self,
         option_strings,
@@ -48,7 +55,7 @@ class Action(argparse.Action):
         help=None,
         metavar=None,
         deprecated=False,
-        model=None
+        field=None
     ):
         super().__init__(
             option_strings=option_strings,
@@ -63,16 +70,16 @@ class Action(argparse.Action):
             metavar=metavar,
             deprecated=deprecated
         )
-        self.model = model
+        self.field = field
     
-    def __call__(
+    def __call__( # type: ignore[override]
         self,
         parser: 'ArgumentParser',
         namespace: argparse.Namespace,
         values: Union[str, Sequence[Any], None],
         option_string: Optional[str] = None
     ):
-        super().__call__(parser, namespace, values, option_string)
+        super().__call__(parser, namespace, values, option_string) # type: ignore[misc]
 
 _deprecated_default = object()
 
@@ -88,7 +95,7 @@ class _BooleanOptionalAction(Action):
         help=None,
         metavar=_deprecated_default,
         deprecated=False,
-        model=None
+        field=None
     ):
 
         _option_strings = []
@@ -105,11 +112,9 @@ class _BooleanOptionalAction(Action):
         for field_name in ('type', 'choices', 'metavar'):
             if locals()[field_name] is not _deprecated_default:
                 import warnings
-                warnings._deprecated(
-                    field_name,
-                    "{name!r} is deprecated as of Python 3.12 and will be "
-                    "removed in Python {remove}.",
-                    remove=(3, 14))
+                warnings.deprecated(
+                    f"{field_name} is deprecated as of Python 3.12 and will be "
+                    "removed in Python 3.14.")
 
         if type is _deprecated_default:
             type = None
@@ -129,13 +134,13 @@ class _BooleanOptionalAction(Action):
             help=help,
             metavar=metavar,
             deprecated=deprecated,
-            model=model
+            field=field
         )
 
 
     def __call__(self, parser, namespace, values, option_string=None):
         if option_string in self.option_strings:
-            setattr(namespace, self.dest, not option_string.startswith('--no-'))
+            setattr(namespace, self.dest, not option_string.startswith('--no-'))  # type: ignore[union-attr]
 
     def format_usage(self):
         return ' | '.join(self.option_strings)
@@ -160,13 +165,13 @@ class BooleanOptionalAction(_BooleanOptionalAction):  # pragma: no cover
         self,
         option_strings: Sequence[str],
         dest: str,
-        default: Optional[Union[T, str]] = None,
-        type: Optional[Union[Callable[[str], T], argparse.FileType]] = None,  # noqa: A002
-        choices: Optional[Iterable[T]] = None,
+        default: Optional[bool] = None,
+        type = None,  # noqa: A002
+        choices = None,
         required: bool = False,
         help: Optional[str] = None,  # noqa: A002
         metavar: Optional[Union[str, Tuple[str, ...]]] = None,
-        model=None
+        field=None
     ) -> None:
         """Instantiates the Boolean Optional Action.
 
@@ -206,17 +211,16 @@ class BooleanOptionalAction(_BooleanOptionalAction):  # pragma: no cover
         super().__init__(
             option_strings=_option_strings,
             dest=dest,
-            nargs=0,
             default=default,
             type=type,
             choices=choices,
             required=required,
             help=help,
             metavar=metavar,
-            model=model
+            field=field
         )
 
-    def __call__(
+    def __call__( # type: ignore[override]
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
@@ -265,7 +269,7 @@ class _StoreAction(Action):
         help=None,
         metavar=None,
         deprecated=False,
-        model=None
+        field=None
     ):
         if nargs == 0:
             raise ValueError(
@@ -287,7 +291,7 @@ class _StoreAction(Action):
             help=help,
             metavar=metavar,
             deprecated=deprecated,
-            model=model
+            field=field
         )
 
     def __call__(self, parser, namespace, values, option_string=None):
@@ -306,7 +310,7 @@ class _StoreConstAction(Action):
         help=None,
         metavar=None,
         deprecated=False,
-        model=None
+        field=None
     ):
         super(_StoreConstAction, self).__init__(
             option_strings=option_strings,
@@ -316,8 +320,9 @@ class _StoreConstAction(Action):
             default=default,
             required=required,
             help=help,
+            metavar=metavar,
             deprecated=deprecated,
-            model=model)
+            field=field)
 
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, self.dest, self.const)
@@ -333,7 +338,7 @@ class _StoreTrueAction(_StoreConstAction):
         required=False,
         help=None,
         deprecated=False,
-        model=None
+        field=None
     ):
         super(_StoreTrueAction, self).__init__(
             option_strings=option_strings,
@@ -343,7 +348,7 @@ class _StoreTrueAction(_StoreConstAction):
             required=required,
             help=help,
             default=default,
-            model=model
+            field=field
         )
 
 
@@ -357,7 +362,7 @@ class _StoreFalseAction(_StoreConstAction):
         required=False,
         help=None,
         deprecated=False,
-        model=None
+        field=None
     ):
         super(_StoreFalseAction, self).__init__(
             option_strings=option_strings,
@@ -367,7 +372,7 @@ class _StoreFalseAction(_StoreConstAction):
             required=required,
             help=help,
             deprecated=deprecated,
-            model=model
+            field=field
         )
 
 
@@ -386,7 +391,7 @@ class _AppendAction(Action):
         help=None,
         metavar=None,
         deprecated=False,
-        model=None
+        field=None,
     ):
         if nargs == 0:
             raise ValueError('nargs for append actions must be != 0; if arg '
@@ -406,12 +411,12 @@ class _AppendAction(Action):
             help=help,
             metavar=metavar,
             deprecated=deprecated,
-            model=model
+            field=field
         )
 
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest, None)
-        items = argparse._copy_items(items)
+        items = _copy_items(items)
         items.append(values)
         setattr(namespace, self.dest, items)
 
@@ -428,7 +433,7 @@ class _AppendConstAction(Action):
         help=None,
         metavar=None,
         deprecated=False,
-        model=None
+        field=None
     ):
         super(_AppendConstAction, self).__init__(
             option_strings=option_strings,
@@ -440,12 +445,12 @@ class _AppendConstAction(Action):
             help=help,
             metavar=metavar,
             deprecated=deprecated,
-            model=model
+            field=field
         )
 
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest, None)
-        items = argparse._copy_items(items)
+        items = _copy_items(items)
         items.append(self.const)
         setattr(namespace, self.dest, items)
 
@@ -460,7 +465,7 @@ class _CountAction(Action):
         required=False,
         help=None,
         deprecated=False,
-        model=None
+        field=None
     ):
         super(_CountAction, self).__init__(
             option_strings=option_strings,
@@ -470,7 +475,7 @@ class _CountAction(Action):
             required=required,
             help=help,
             deprecated=deprecated,
-            model=model
+            field=field
         )
 
     def __call__(self, parser, namespace, values, option_string=None):
@@ -489,7 +494,7 @@ class _HelpAction(Action):
         default=argparse.SUPPRESS,
         help=None,
         deprecated=False,
-        model=None
+        field=None,
     ):
         super(_HelpAction, self).__init__(
             option_strings=option_strings,
@@ -498,7 +503,7 @@ class _HelpAction(Action):
             nargs=0,
             help=help,
             deprecated=deprecated,
-            model=model
+            field=field
         )
 
     def __call__(self, parser, namespace, values, option_string=None):
@@ -516,7 +521,7 @@ class _VersionAction(Action):
         default=argparse.SUPPRESS,
         help=None,
         deprecated=False,
-        model=None
+        field=None
     ):
         if help is None:
             help = _("show program's version number and exit")
@@ -526,7 +531,7 @@ class _VersionAction(Action):
             default=default,
             nargs=0,
             help=help,
-            model=model
+            field=field
         )
         self.version = version
 
@@ -550,7 +555,7 @@ class _SubParsersAction(Action):
                 metavar += ' (%s)' % ', '.join(aliases)
             sup = super(_SubParsersAction._ChoicesPseudoAction, self)
             sup.__init__(option_strings=[], dest=dest, help=help,
-                         metavar=metavar, model=None)
+                         metavar=metavar, field=None)
 
     def __init__(
         self,
@@ -561,7 +566,7 @@ class _SubParsersAction(Action):
         required=False,
         help=None,
         metavar=None,
-        model=None
+        field=None
     ):
 
         self._prog_prefix = prog
@@ -578,7 +583,7 @@ class _SubParsersAction(Action):
             required=required,
             help=help,
             metavar=metavar,
-            model=model
+            field=field
         )
 
     def add_parser(self, name, *, deprecated=False, **kwargs):
@@ -619,6 +624,7 @@ class _SubParsersAction(Action):
         return self._choices_actions
 
     def __call__(self, parser, namespace, values, option_string=None):
+        assert values is not None
         parser_name = values[0]
         arg_strings = values[1:]
 
@@ -658,7 +664,7 @@ class _SubParsersAction(Action):
 class _ExtendAction(_AppendAction):
     def __call__(self, parser, namespace, values, option_string=None):
         items = getattr(namespace, self.dest, None)
-        items = argparse._copy_items(items)
+        items = _copy_items(items)
         items.extend(values)
         setattr(namespace, self.dest, items)
 
@@ -756,6 +762,7 @@ class SubParsersAction(_SubParsersAction):
         # Parse all the remaining options into a sub-namespace, then embed this
         # sub-namespace into the parent namespace
         subnamespace, arg_strings = parser.parse_known_args(arg_strings)
+        assert parser.dest is not None
         setattr(namespace, parser.dest, subnamespace)
 
         # Store any unrecognized options on the parent namespace, so that the
