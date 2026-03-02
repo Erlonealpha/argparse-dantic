@@ -2,7 +2,6 @@ import sys
 import os
 sys.path.append(os.getcwd())
 from typing import Annotated, Optional, Union
-
 from argparse_dantic import ArgumentParser, BaseModel, ArgumentField, ModelField
 
 class LoggingModel(BaseModel):

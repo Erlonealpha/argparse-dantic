@@ -58,5 +58,6 @@ def parse_field(
         prefix_chars=field.command_fields.prefix_chars,
         exit_on_error=False,  # Allow top level parser to handle exiting 
         console=console,
+        field=field,
     )
     subparser._set_dest(field.dest) # type: ignore

@@ -3,7 +3,7 @@ from warnings import deprecated
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic._internal import _utils
 
-from ._construct import BaseModelMetaRewrite, GlobalData, default_global_data
+from ._construct import BaseModelMetaRewrite
 from .fields import Field, FieldInfo
 
 _T = typing.TypeVar('_T')
@@ -86,12 +86,12 @@ class BaseModelMeta(BaseModelMetaRewrite):
                 del namespace[command_name]
             annotations[command_name] = typing.Annotated[str | None, Field(default=None)]
 
-class BaseModel(PydanticBaseModel, metaclass=BaseModelMeta, global_data=default_global_data):
-    global_data: typing.ClassVar[GlobalData]
-    """A class-level attribute that holds the global data for the model."""
+class BaseModel(PydanticBaseModel, metaclass=BaseModelMeta):
+    """A set of global field names for this model."""
+    __argparse_dantic_global_fields_names__: typing.ClassVar[set[str]] = set()
 
-    __command_name_binds_names__: typing.ClassVar[set[str]]
     """A set of command name binds names for this model."""
+    __command_name_binds_names__: typing.ClassVar[set[str]]
 
     if typing.TYPE_CHECKING:
         __pydantic_fields__: typing.ClassVar[dict[str, FieldInfo]] # type: ignore[override]
@@ -106,3 +106,47 @@ class BaseModel(PydanticBaseModel, metaclass=BaseModelMeta, global_data=default_
                 Instead, you should access this attribute from the model class.
             """
             return getattr(cls, '__pydantic_fields__', {})
+
+    @classmethod
+    def model_validate(
+        cls, 
+        obj: typing.Any, *, 
+        strict: bool | None = None, 
+        extra: None | typing.Literal['allow', 'ignore', 'forbid'] = None, 
+        from_attributes: bool | None = None, 
+        context: typing.Any | None = None, 
+        by_alias: bool | None = None, 
+        by_name: bool | None = None
+    ) -> typing.Self:
+        envs = lookup_env_fields(cls.__pydantic_fields__)
+        if envs:
+            envs.update(obj)
+            obj = envs
+        return super().model_validate(
+            obj, strict=strict, extra=extra, from_attributes=from_attributes, context=context, by_alias=by_alias, by_name=by_name
+        )
+
+def lookup_env_fields(fields: dict[str, FieldInfo]):
+    import os
+    
+    def _lookup(fields: dict[str, FieldInfo], obj: dict[str, typing.Any]):
+        for name, field in fields.items():
+            if field.argument_fields is not None and \
+                field.argument_fields.env is not None and \
+                field.argument_fields.env in os.environ:
+                obj[name] = os.environ[field.argument_fields.env]
+            elif field.command_fields is not None or field.model_fields is not None:
+                ann = typing.get_origin(field.annotation) or field.annotation
+                assert ann is not None
+                assert issubclass(ann, BaseModel), "AssertionError: field.annotation must be a BaseModel when it has command_fields or model_fields"
+                if name not in obj:
+                    _obj = {}
+                else:
+                    _obj = obj[name]
+                _lookup(ann.__pydantic_fields__, _obj)
+                if _obj:
+                    obj[name] = _obj
+
+    obj = {}
+    _lookup(fields, obj)
+    return obj

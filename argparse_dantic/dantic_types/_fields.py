@@ -8,7 +8,7 @@ import warnings
 from collections.abc import Mapping
 from inspect import ismethoddescriptor
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, ClassVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, ClassVar, Iterable
 
 from pydantic_core import PydanticUndefined
 from typing_extensions import TypeIs
@@ -527,14 +527,6 @@ def takes_validated_data_argument(
     return _takes_validated_data_argument(default_factory)
 
 
-def update_fields_group(fields: dict[str, FieldInfo], group: "_Group | _MutuallyExclusiveGroup"):
-    for _, field in fields.items():
-        if field.group is not None:
-            if isinstance(group, _MutuallyExclusiveGroup):
-                field.group.create_mutually_exclusive_group(group.required)
-            elif isinstance(group, _Group):
-                field.group.create_group(group.title, group.description)
-            else:
-                raise ValueError(f"Invalid group type: {group!r}")
-        else:
-            field.group = group
+def update_fields_group(fields: dict[str, FieldInfo], names: Iterable[str], group: "_Group | _MutuallyExclusiveGroup"):
+    for n in names:
+        fields[n].group = group

@@ -967,6 +967,8 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
                             d[name] = {}
                         d = d[name]
                     d[names[-1]] = v
+                elif isinstance(v, dict):
+                    _iter(v)
             dic.update(remap)
             for _k in dels:
                 del dic[_k]
@@ -978,8 +980,11 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
         
         def _global_check(k, v, model: Type[PydanticModelT]):
             field = model.__pydantic_fields__[k]
-            if field.argument_fields is not None and field.argument_fields.global_:
-                model.global_data[k] = v
+            if field.global_:
+                if field.model_fields is not None:
+                    getattr(model, "global_data")[k] = field.annotation.model_validate(v) # type: ignore
+                else:
+                    getattr(model, "global_data")[k] = v
 
             if isinstance(v, dict):
                 _iter(v, utils.types.get_field_type(field))
@@ -1175,10 +1180,9 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
             # Add field
             validator = add_field(field)
 
-            if field.argument_fields is not None and field.argument_fields.global_ \
-                and field.dest not in model.global_data:
+            if field.global_ and field.dest not in (_global_data := getattr(model, "global_data")):
                 # Set default value for global data
-                model.global_data[field.dest] = field.get_default()
+                _global_data[field.dest] = field.get_default()
 
             # Update validators
             utils.pydantic.update_validators(validators, validator)
@@ -1196,6 +1200,8 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
             Optional[utils.pydantic.PydanticValidator]: Possible validator.
         """
         if parsers.command.should_parse(field):
+            if hasattr(self, "_group"):
+                raise ValueError("Cannot add sub-commands to a group")
             # Add Command
             validator = parsers.command.parse_field(self._commands(field), field, self.console) # type: ignore
 
@@ -1262,7 +1268,7 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
             group_actions = action_group._group_actions.copy()
             for i in range(len(group_actions) - 1, -1, -1):
                 field = group_actions[i].field
-                if field is not None and field.argument_fields is not None and field.argument_fields.global_:
+                if field is not None and field.global_:
                     global_actions.append(group_actions.pop(i))
             if not group_actions:
                 continue

@@ -1,18 +1,19 @@
-"""Simple Example."""
-
-from argparse_dantic import ArgumentParser, BaseModel, Field
+import sys
+import os
+sys.path.append(os.getcwd())
+from argparse_dantic import ArgumentParser, BaseModel, ArgumentField
 
 class Arguments(BaseModel):
     """Simple Command-Line Arguments."""
 
     # Required Args
-    string: str = Field(description="a required string", aliases=["-s"])
-    integer: int = Field(description="a required integer", aliases=["-i"])
-    flag: bool = Field(description="a required flag", aliases=["-f"])
+    string: str = ArgumentField("-s", description="a required string")
+    integer: int = ArgumentField("-i", description="a required integer")
+    flag: bool = ArgumentField("-f", description="a required flag")
 
     # Optional Args
-    second_flag: bool = Field(False, description="an optional flag")
-    third_flag: bool = Field(True, description="an optional flag")
+    second_flag: bool = ArgumentField("-sec", default=False, description="an optional flag")
+    third_flag: bool = ArgumentField("-thi", default=True, description="an optional flag")
 
 
 def main() -> None:
@@ -25,10 +26,11 @@ def main() -> None:
         version="0.0.1",
         epilog="Example Epilog",
     )
-    args = parser.parse_typed_args()
+    args = ["-h"]
+    arguments = parser.parse_typed_args(args)
 
     # Print Args
-    print(args)
+    print(arguments)
 
 
 if __name__ == "__main__":

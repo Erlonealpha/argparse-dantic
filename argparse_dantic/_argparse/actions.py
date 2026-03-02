@@ -549,13 +549,13 @@ class _SubParsersAction(Action):
 
     class _ChoicesPseudoAction(Action):
 
-        def __init__(self, name, aliases, help):
+        def __init__(self, name, aliases, help, field):
             metavar = dest = name
             if aliases:
                 metavar += ' (%s)' % ', '.join(aliases)
             sup = super(_SubParsersAction._ChoicesPseudoAction, self)
             sup.__init__(option_strings=[], dest=dest, help=help,
-                         metavar=metavar, field=None)
+                         metavar=metavar, field=field)
 
     def __init__(
         self,
@@ -603,7 +603,7 @@ class _SubParsersAction(Action):
         # create a pseudo-action to hold the choice help
         if 'help' in kwargs:
             help = kwargs.pop('help')
-            choice_action = self._ChoicesPseudoAction(name, aliases, help)
+            choice_action = self._ChoicesPseudoAction(name, aliases, help, kwargs.pop('field'))
             self._choices_actions.append(choice_action)
 
         # create the parser and add it to the map

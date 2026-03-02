@@ -89,7 +89,6 @@ class _FromFieldInfoInputs(TypedDict, total=False):
     allow_none: bool | None
 
     help: str | None
-    global_: bool | None
     env: str | None
     required: bool | None
     metavar: str | None
@@ -117,7 +116,6 @@ _DefaultValues = {
     "allow_none": False,
     "metavar": None,
     "env": None,
-    "global_": False,
     "prog": None,
     "usage": None,
     "epilog": None,
@@ -136,7 +134,6 @@ class ArgumentFieldInfo(typing.NamedTuple):
     allow_none: bool
     metavar: str | None
     env: str | None
-    global_: bool
 
 class CommandFieldInfo(typing.NamedTuple):
     aliases: list[str]
@@ -189,6 +186,7 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
         'argument_fields',
         'command_fields',
         'model_fields',
+        'global_',
         '_attributes_set',
         '_qualifiers',
         '_complete',
@@ -205,7 +203,7 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
         _argument_fields = None
         _command_fields = None
         _model_fields = None
-        _field_type =       typing.cast(_FIELD_TYPE, kwargs.pop('_field_type',   None  ))
+        _field_type =       typing.cast(_FIELD_TYPE,        kwargs.pop('_field_type',    None))
         if _field_type is None:
             if (ann := kwargs.get("annotation")) is not None:
                 from ._import_utils import import_cached_base_model
@@ -229,7 +227,6 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
             allow_none =    typing.cast(bool,               kwargs.pop('allow_none',     g('allow_none')))
             metavar =       typing.cast(str | None,         kwargs.pop('metavar',        g('metavar')))
             env =           typing.cast(str | None,         kwargs.pop('env',            g('env')))
-            global_ =       typing.cast(bool,               kwargs.pop('global_',        g('global_')))
             if not required and default is _Unset:
                 # If the required is False, we want to set default to None, not _Unset.
                 # That new pydantic will not raise missing value error.
@@ -241,7 +238,6 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
                 allow_none=allow_none,
                 metavar=metavar,
                 env=env,
-                global_=global_,
             )
         elif _field_type == FieldTypes.SUBCOMMAND:
             default = None
@@ -288,6 +284,7 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
         self.argument_fields: "ArgumentFieldInfo | None" = _argument_fields
         self.command_fields: "CommandFieldInfo | None" = _command_fields
         self.model_fields: "ModelFieldInfo | None" = _model_fields
+        self.global_ = False
 
     @staticmethod
     def from_field(default: typing.Any = PydanticUndefined, **kwargs: Unpack[_FromFieldInfoInputs]) -> "FieldInfo": # type: ignore
@@ -342,6 +339,9 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
                 field_metadata.extend(a.metadata)
             new_field_info.metadata = field_metadata
         new_field_info._qualifiers = inspected_ann.qualifiers
+        if new_field_info._field_type == FieldTypes.MODEL and new_field_info.default_factory is None:
+            # Set default_factory to the model class if it's not set already.
+            new_field_info.default_factory = new_field_info.annotation
         return new_field_info
     
     @staticmethod
@@ -426,6 +426,9 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
                 field_metadata.extend(a.metadata)
         field_info.metadata = field_metadata
         field_info._qualifiers = inspected_ann.qualifiers
+        if field_info._field_type == FieldTypes.MODEL and field_info.default_factory is None:
+            # Set default_factory to the model class if it's not set already.
+            field_info.default_factory = field_info.annotation
         return field_info
     
     @staticmethod
@@ -548,7 +551,6 @@ def Field(
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
-    global_: bool | None = _Unset,
     env: str | None = _Unset,
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
@@ -603,7 +605,6 @@ def Field(
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
-    global_: bool | None = _Unset,
     env: str | None = _Unset,
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
@@ -661,7 +662,6 @@ def Field(
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
-    global_: bool | None = _Unset,
     env: str | None = _Unset,
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
@@ -716,7 +716,6 @@ def Field(  # pyright: ignore[reportOverlappingOverload]
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
-    global_: bool | None = _Unset,
     env: str | None = _Unset,
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
@@ -774,7 +773,6 @@ def Field(
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
-    global_: bool | None = _Unset,
     env: str | None = _Unset,
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
@@ -828,7 +826,6 @@ def Field(  # No default set
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
-    global_: bool | None = _Unset,
     env: str | None = _Unset,
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
@@ -883,7 +880,6 @@ def Field(  # noqa: C901
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
-    global_: bool | None = _Unset,
     env: str | None = _Unset,
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
@@ -1017,7 +1013,7 @@ def Field(  # noqa: C901
         def is_defined(v: typing.Any) -> bool:
             return v is not _Unset
         # try to infer field type from inputs
-        if all(is_defined(v) for v in (allow_none, help, global_, env, required, metavar)):
+        if all(is_defined(v) for v in (allow_none, help, env, required, metavar)):
             _field_type = FieldTypes.ARGUMENT
         elif all(is_defined(v) for v in (usage, epilog, prefix_chars, add_help, exit_on_error, version)):
             _field_type = FieldTypes.SUBCOMMAND
@@ -1097,7 +1093,6 @@ def Field(  # noqa: C901
         aliases=aliases,
         allow_none=allow_none,
         help=help,
-        global_=global_,
         env=env,
         required=required,
         metavar=metavar,
@@ -1147,7 +1142,6 @@ def ArgumentField(
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
-    global_: bool | None = _Unset,
     env: str | None = _Unset,
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
@@ -1188,7 +1182,6 @@ def ArgumentField(
         max_length=max_length,
         union_mode=union_mode,
         fail_fast=fail_fast,
-        global_ =global_,
         help=help,
         env=env,
         required=required,

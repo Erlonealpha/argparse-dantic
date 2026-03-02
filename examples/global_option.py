@@ -1,16 +1,22 @@
-from typing import Literal
-from rich import print
-from rich.pretty import pprint
 import sys
 import os
+
 sys.path.append(os.getcwd())
 
+from typing import Literal, TypedDict
+from rich import print
+from rich.pretty import pprint
 from argparse_dantic import ArgumentParser, CommandNameBind, BaseModel, Field, CommandField
+
+class GlobalData(TypedDict):
+    global_arg_1: str
+    global_2: bool
 
 class GlobalModel(BaseModel):
     command_name: CommandNameBind
-    global_arg_1: str = Field(aliases=["-g1"], default="global_arg_1", global_=True)
-    global_2: bool = Field(aliases=["--g2"], default=False, global_=True)
+    global_data: GlobalData
+    global_arg_1: str = Field(aliases=["-g1"], default="global_arg_1")
+    global_2: bool = Field(aliases=["--g2"], default=False)
 
 class SomePubOptions(BaseModel):
     option_p1: str = Field(aliases=["-op1"], default="option_p1")

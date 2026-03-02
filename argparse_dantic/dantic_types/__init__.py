@@ -3,7 +3,7 @@ Overwrite the pydantic model build
 """
 
 from .fields import FieldInfo, Field, ArgumentField, CommandField, ModelField
-from .main import BaseModel, CommandNameBind, ActionNameBind, GlobalData
+from .main import BaseModel, CommandNameBind, ActionNameBind
 from .basic_config import set_basic_config, reset_basic_config
 from .groups import create_group, create_mutually_exclusive_group
 
@@ -16,7 +16,6 @@ __all__ = [
     "BaseModel",
     "ActionNameBind",
     "CommandNameBind",
-    "GlobalData",
     "set_basic_config",
     "reset_basic_config",
     "create_group",

@@ -67,11 +67,6 @@ else:
 
 object_setattr = object.__setattr__
 
-class GlobalData(dict):
-    pass
-
-default_global_data = GlobalData()
-
 def NoInitField(
     *,
     init: Literal[False] = False,
@@ -81,6 +76,8 @@ def NoInitField(
     synthesizing the `__init__` signature.
     """
 
+# GlobalData annotations instance cache
+_global_data_annotations_inst_map = {}
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(PydanticModelField, PydanticModelPrivateAttr, NoInitField))
 class BaseModelMetaRewrite(ModelMetaclass):
@@ -133,6 +130,27 @@ class BaseModelMetaRewrite(ModelMetaclass):
                         raw_annotations = {}
             else:
                 raw_annotations = namespace.get('__annotations__', {})
+            
+            if "global_data" in raw_annotations:
+                global_data_inst = namespace.get("global_data")
+                if global_data_inst is not None:
+                    if global_data_inst.__class__.__class__ is not typing._TypedDictMeta: # type: ignore
+                        raise ValueError("global_data must be a TypedDict")
+                    global_data_annotations = global_data_inst.__annotations__
+                else:
+                    global_data_ann = raw_annotations.get("global_data", None)
+                    if global_data_ann is None:
+                        raise ValueError("global_data must be a TypedDict")
+                    if global_data_ann.__class__ is not typing._TypedDictMeta: # type: ignore
+                        raise ValueError("global_data must be a TypedDict")
+                    global_data_annotations = global_data_ann.__annotations__
+                    if _global_data_annotations_inst_map.get(global_data_ann) is None:
+                        _global_data_annotations_inst_map[global_data_ann] = {}
+                    global_data_inst = _global_data_annotations_inst_map[global_data_ann]
+                    namespace["global_data"] = global_data_inst
+                    raw_annotations["global_data"] = typing.ClassVar[dict[str, Any]]
+            else:
+                global_data_annotations = None
 
             mcs.__set_command_name_binds_names__(bases, namespace, raw_annotations)
 
@@ -279,6 +297,22 @@ class BaseModelMetaRewrite(ModelMetaclass):
             # I believe the `type: ignore` is only necessary because mypy doesn't realize that this code branch is
             # only hit for _proper_ subclasses of BaseModel
             super(cls, cls).__pydantic_init_subclass__(**kwargs)  # type: ignore[misc]
+
+            if global_data_annotations is not None:
+                for global_data_name in global_data_annotations.keys():
+                    cls.__argparse_dantic_global_fields_names__.add(global_data_name)
+                    try:
+                        cls.__pydantic_fields__[global_data_name].global_ = True
+                    except KeyError:
+                        raise ValueError(f"Cannot find specified global_data field '{global_data_name}' in model")
+            elif not hasattr(cls, 'global_data'):
+                setattr(cls, 'global_data', {})
+
+            if (group := kwargs.pop("group", None)) is not None:
+                _filter_names = cls.__command_name_binds_names__.copy()
+                _filter_names.add("global_data")
+                names = filter(lambda x: x not in _filter_names, raw_annotations.keys())
+                update_fields_group(cls.__pydantic_fields__, names, group)
         else:
             # These are instance variables, but have been assigned to `NoInitField` to trick the type checker.
             for instance_slot in '__pydantic_fields_set__', '__pydantic_extra__', '__pydantic_private__':
@@ -289,13 +323,10 @@ class BaseModelMetaRewrite(ModelMetaclass):
             namespace.get('__annotations__', {}).clear()
             cls = cast('type[BaseModel]', ABCMeta.__new__(mcs, cls_name, bases, namespace))
 
-        if (global_data := kwargs.pop("global_data", None)) is not None:
-            setattr(cls, "global_data", global_data)
-        else:
-            setattr(cls, "global_data", default_global_data)
-
-        if (group := kwargs.pop("group", None)) is not None:
-            update_fields_group(cls.__pydantic_fields__, group)
+        if (kwargs.pop("global_data", None)) is not None:
+            warnings.warn(
+                "The `global_data` argument is deprecated and will be removed in a future version. "
+                "Define global_data: TypedDict in the class body instead.")
 
         return cls
 

@@ -1,91 +1,6 @@
-<div align="center">
-<!-- Logo -->
-<a><img src="https://raw.githubusercontent.com/SupImDos/pydantic-argparse/master/docs/assets/images/logo.svg" width="50%"></a>
-<!-- Headings -->
-<h1>Argparse Dantic</h1>
-<p><em>Typed Argument Parsing with Pydantic Enhanced</em></p>
-<!-- Badges (Row 1) -->
-<a href="https://pypi.python.org/pypi/argparse-dantic"><img src="https://img.shields.io/pypi/v/argparse-dantic"></a>
-<a href="https://pepy.tech/project/argparse-dantic"><img src="https://img.shields.io/pepy/dt/argparse-dantic?color=blue"></a>
-<a href="https://github.com/SupImDos/pydantic-argparse/blob/master/LICENSE"><img src="https://img.shields.io/github/license/ErloneAlpha/argparse-dantic"></a>
-<br>
-</div>
-
-## Requirements
-Requires Python 3.10+, and is compatible with the Pydantic library.
-Use Rich for better console output.
-
-## Installation
-Installation with `pip` is simple:
-```console
-$ pip install argparse-dantic
-```
-
-## Example
-```py
-from argparse_dantic import ArgumentParser, BaseModel, ArgumentField
-
-class Arguments(BaseModel):
-    """Simple Command-Line Arguments."""
-
-    # Required Args
-    string: str = ArgumentField("-s", description="a required string")
-    integer: int = ArgumentField("-i", description="a required integer")
-    flag: bool = ArgumentField("-f", description="a required flag")
-
-    # Optional Args
-    second_flag: bool = ArgumentField("-sec", default=False, description="an optional flag")
-    third_flag: bool = ArgumentField("-thi", default=True, description="an optional flag")
-
-def main() -> None:
-    """Simple Main Function."""
-    # Create Parser and Parse Args
-    parser = ArgumentParser(
-        model_class=Arguments,
-        prog="Example Program",
-        description="Example Description",
-        version="0.0.1",
-        epilog="Example Epilog",
-    )
-    args = ["-h"]
-    arguments = parser.parse_typed_args(args)
-
-    # Print Args
-    print(arguments)
-
-if __name__ == "__main__":
-    main()
-```
-
-```console
-$ python3 example.py --help
-Example Description
-
-Usage: Example Program [-h] [-v] [--s STRING] [--i INTEGER] [--f] [--sec] [--no-thi]
-
-Optional Arguments:
-  -s, --string STRING   a required string (default: None)
-  -i, --integer INTEGER
-                        a required integer (default: None)
-  -f, --flag            a required flag (default: None)
-  -sec, --second-flag   an optional flag (default: False)
-  -no-thi, --no-third-flag
-                        an optional flag (default: True)
-
-Help:
-  -h, --help            show this help message and exit
-  -v, --version         show program's version number and exit
-
-Example Epilog
-```
-
-```console
-$ python3 example.py --string hello -i 42 -f
-string='hello' integer=42 flag=True second_flag=False third_flag=True
-```
-
-## Advanced Example
-```py
+import sys
+import os
+sys.path.append(os.getcwd())
 from typing import Annotated, Any, TypedDict, Literal
 from argparse_dantic import (
     BaseModel, ArgumentParser, CommandNameBind, 
@@ -174,6 +89,8 @@ if __name__ == "__main__":
         version="1.0.0"
     )
     args = ["build", "--name", "MyProject", "--logging.level", "error", "--quiet"]
+    # args = ["list", "tools"]
+    args = ["-h"]
     arguments = parser.parse_typed_args(args)
     parser.console.print("Global Data:")
     parser.console.print("\tverbose:", arguments.global_data["verbose"])
@@ -188,7 +105,3 @@ if __name__ == "__main__":
             parser.console.print("No command specified")
         else:
             parser.console.print(f"Command {arguments.command_name} not found")
-```
-
-## License
-This project is licensed under the terms of the MIT license.

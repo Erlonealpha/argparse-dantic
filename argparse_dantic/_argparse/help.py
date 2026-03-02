@@ -1,6 +1,8 @@
-import argparse
+import os
 import re
-from typing import Optional, Self
+import argparse
+from typing import Optional, Self, TYPE_CHECKING
+from .actions import Action
 
 class HelpColors:
     HEADER      = "bold spring_green3"
@@ -9,6 +11,10 @@ class HelpColors:
     ALIAS       = "cadet_blue"
 
 class HelpFormatter(argparse.HelpFormatter):
+    if TYPE_CHECKING:
+        _root_section: "_Section"
+        _current_section: "_Section"
+
     def __init__(
         self,
         prog,
@@ -33,7 +39,7 @@ class HelpFormatter(argparse.HelpFormatter):
         self._level = 0
         self._action_max_length = 0
 
-        self._root_section = self._Section(self, None)
+        self._root_section = self._Section(self, None) # type: ignore
         self._current_section = self._root_section
 
         self._whitespace_matcher = re.compile(r'\s+', re.ASCII)
@@ -51,7 +57,7 @@ class HelpFormatter(argparse.HelpFormatter):
         assert self._current_indent >= 0, 'Indent decreased below 0.'
         self._level -= 1
 
-    class _Section(object):
+    class _Section(object): # type: ignore
 
         def __init__(self, formatter: 'HelpFormatter', parent: Optional[Self], heading: Optional[str]=None):
             self.formatter = formatter
@@ -501,11 +507,24 @@ class HelpFormatter(argparse.HelpFormatter):
             subsequent_indent=indent
         )
 
-    def _get_help_string(self, action):
+    def _get_help_string(self, action: Action): # type: ignore
+        if action.field is not None and \
+            action.field.argument_fields is not None and \
+            action.field.argument_fields.env is not None:
+            env_var = os.environ.get(action.field.argument_fields.env)
+            if env_var is not None:
+                env = f"\[env: {action.field.argument_fields.env}={env_var}]" # type: ignore
+            else:
+                env = f"\[env: {action.field.argument_fields.env}=]" # type: ignore
+            if action.help is not None:
+                return f"{action.help} {env}"
+            else:
+                return env
+
         return action.help
 
-    def _get_default_metavar_for_optional(self, action):
+    def _get_default_metavar_for_optional(self, action: Action): # type: ignore
         return action.dest.upper()
 
-    def _get_default_metavar_for_positional(self, action):
+    def _get_default_metavar_for_positional(self, action: Action): # type: ignore
         return action.dest
