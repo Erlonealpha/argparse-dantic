@@ -44,5 +44,23 @@ def test_model_field_with_custom_connect_char():
 
     assert args.nested.timeout == 9
 
+def test_nested_model():
+    class NestedModelInner(BaseModel):
+        timeout: Annotated[int, ArgumentField(default=3)]
+
+    class NestedModel(BaseModel):
+        inner: Annotated[NestedModelInner, ModelField()]
+
+    class MainModel(BaseModel):
+        nested: Annotated[NestedModel, ModelField()]
+
+    parser = ArgumentParser(MainModel)
+    args = parser.parse_typed_args([
+        "--nested.inner.timeout", "9",
+    ])
+
+    assert args.nested.inner.timeout == 9
+
+
 if __name__ == "__main__":
     test_model_field_with_custom_connect_char()

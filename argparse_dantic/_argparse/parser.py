@@ -1358,7 +1358,10 @@ else:
             self._connect_char = connect_char
             self.dest = prefix + field.dest
             self.aliases = [prefix + alias for alias in field.aliases]
-            self.argument_fields = ArgumentFieldWrapper((prefix, field.argument_fields))
+            if field.argument_fields is not None:
+                self.argument_fields = ArgumentFieldWrapper((prefix, field.argument_fields))
+            else:
+                self.argument_fields = None
 
         def __getattr__(self, name):
             if name in self.__dict__:

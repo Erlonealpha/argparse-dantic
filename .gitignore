@@ -23,7 +23,7 @@ __pycache__/
 build/
 develop-eggs/
 dist/
-dist_old/
+.dist_old/
 downloads/
 eggs/
 .eggs/
