@@ -5,7 +5,7 @@ that provides recursive namespace nesting when parsing sub-commands. It also
 contains the `BooleanOptionalAction` class, which is a direct backport of the
 Python standard library `argparse` class of the same name.
 """
-
+import sys
 import argparse
 from gettext import gettext as _
 from typing import Any, Callable, Iterable, Optional, Sequence, Tuple, TypeAlias, Union, cast, TYPE_CHECKING
@@ -41,36 +41,66 @@ class Action(argparse.Action):
         metavar: Optional[Union[str, Tuple[str, ...]]]
         deprecated: bool
         field: Optional[FieldInfo]
-
-    def __init__(
-        self,
-        option_strings,
-        dest,
-        nargs=None,
-        const=None,
-        default=None,
-        type=None,
-        choices=None,
-        required=False,
-        help=None,
-        metavar=None,
-        deprecated=False,
-        field=None
-    ):
-        super().__init__(
-            option_strings=option_strings,
-            dest=dest,
-            nargs=nargs,
-            const=const,
-            default=default,
-            type=type,
-            choices=choices,
-            required=required,
-            help=help,
-            metavar=metavar,
-            deprecated=deprecated
-        )
-        self.field = field
+    if sys.version_info >= (3, 13):
+        def __init__(
+            self,
+            option_strings,
+            dest,
+            nargs=None,
+            const=None,
+            default=None,
+            type=None,
+            choices=None,
+            required=False,
+            help=None,
+            metavar=None,
+            deprecated=False,
+            field=None
+        ):
+            super().__init__(
+                option_strings=option_strings,
+                dest=dest,
+                nargs=nargs,
+                const=const,
+                default=default,
+                type=type,
+                choices=choices,
+                required=required,
+                help=help,
+                metavar=metavar,
+                deprecated=deprecated
+            )
+            self.field = field
+    else:
+        def __init__(
+            self,
+            option_strings,
+            dest,
+            nargs=None,
+            const=None,
+            default=None,
+            type=None,
+            choices=None,
+            required=False,
+            help=None,
+            metavar=None,
+            deprecated=False,
+            field=None
+        ):
+            super().__init__(
+                option_strings=option_strings,
+                dest=dest,
+                nargs=nargs,
+                const=const,
+                default=default,
+                type=type,
+                choices=choices,
+                required=required,
+                help=help,
+                metavar=metavar,
+            )
+            self.field = field
+            self.deprecated = deprecated
     
     def __call__( # type: ignore[override]
         self,
@@ -112,7 +142,11 @@ class _BooleanOptionalAction(Action):
         for field_name in ('type', 'choices', 'metavar'):
             if locals()[field_name] is not _deprecated_default:
                 import warnings
-                warnings.deprecated(
+                if sys.version_info >= (3, 13):
+                    warn = warnings.warn
+                else:
+                    warn = warnings._deprecated  # type: ignore[attr-defined]
+                warn(
                     f"{field_name} is deprecated as of Python 3.12 and will be "
                     "removed in Python 3.14.")
 

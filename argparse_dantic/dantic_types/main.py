@@ -1,5 +1,8 @@
 import typing
-from warnings import deprecated
+try:
+    from typing import Self # type: ignore[attr-defined]
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Self
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic._internal import _utils
 
@@ -18,6 +21,12 @@ def __dataclass_transform__(
     return lambda a: a
 
 if typing.TYPE_CHECKING:
+    import sys
+    if sys.version_info >= (3, 13):
+        from warnings import deprecated
+    else:
+        from warnings import _deprecated as deprecated  # type: ignore[attr-defined]
+
     class CommandNameBind(str):
         """
         CommandNameBind is a marker class for command bind types.
@@ -65,7 +74,7 @@ else:
 @__dataclass_transform__(kw_only_default=True, field_descriptors=(Field, FieldInfo))
 class BaseModelMeta(BaseModelMetaRewrite):
     @classmethod
-    def __set_command_name_binds_names__(mcs, bases: tuple[type], namespace: dict[str, typing.Any], annotations: dict[str, typing.Any]) -> None:
+    def __set_command_name_binds_names__(mcs, bases: tuple[type], namespace: dict[str, typing.Any], annotations: dict[str, typing.Any]):
         if '__command_name_binds_names__' in namespace:
             command_name_binds_names = namespace['__command_name_binds_names__']
         else:
@@ -81,10 +90,7 @@ class BaseModelMeta(BaseModelMetaRewrite):
             namespace['__command_name_binds_names__'] = command_name_binds_names
 
         # remove command name binds from namespace and annotations
-        for command_name in command_name_binds_names:
-            if command_name in namespace:
-                del namespace[command_name]
-            annotations[command_name] = typing.Annotated[str | None, Field(default=None)]
+        return command_name_binds_names
 
 class BaseModel(PydanticBaseModel, metaclass=BaseModelMeta):
     """A set of global field names for this model."""
@@ -108,7 +114,7 @@ class BaseModel(PydanticBaseModel, metaclass=BaseModelMeta):
             return getattr(cls, '__pydantic_fields__', {})
 
     @classmethod
-    def model_validate(
+    def model_validate( # type: ignore[override]
         cls, 
         obj: typing.Any, *, 
         strict: bool | None = None, 
@@ -117,7 +123,7 @@ class BaseModel(PydanticBaseModel, metaclass=BaseModelMeta):
         context: typing.Any | None = None, 
         by_alias: bool | None = None, 
         by_name: bool | None = None
-    ) -> typing.Self:
+    ) -> Self:
         envs = lookup_env_fields(cls.__pydantic_fields__)
         if envs:
             envs.update(obj)

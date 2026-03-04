@@ -38,4 +38,6 @@ ignore = [
 
 [tool.uv]
 cache-dir = "F:\\.local\\uvcache"
-dev-dependencies = ["pytest"]
+
+[dependency-groups]
+dev = ["pytest"]

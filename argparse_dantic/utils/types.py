@@ -4,11 +4,22 @@ The `types` module contains a utility function used for determining and
 comparing the types of `pydantic fields.
 """
 
-import typing
-from typing import Any, Tuple, Union, TYPE_CHECKING, get_origin
+from typing import Any, Tuple, Union, TYPE_CHECKING, get_args, get_origin
 
 if TYPE_CHECKING:
     from argparse_dantic import FieldInfo
+
+
+def _get_optional_inner_type(annotation: Any) -> Any | None:
+    origin = get_origin(annotation)
+    if origin is not Union:
+        return None
+
+    non_none_args = tuple(t for t in get_args(annotation) if t is not type(None))
+    if len(non_none_args) != 1:
+        return None
+    return non_none_args[0]
+
 
 def is_field_a(
     field: "FieldInfo",
@@ -42,15 +53,9 @@ def is_field_a(
             return False
         field_type = default.__class__
     else:
-        if issubclass(field.annotation.__class__, typing._UnionGenericAlias): # type: ignore
-            field_type = None
-            # Optional[T] is equivalent to Union[T, None]
-            for t in field.annotation.__args__:
-                if t is type(None):
-                    continue
-                if field_type is not None: # multiple types found
-                    return False
-                field_type = t
+        optional_inner_type = _get_optional_inner_type(field.annotation)
+        if optional_inner_type is not None:
+            field_type = optional_inner_type
         else:
             # Get field type, or origin if applicable
             field_type = get_origin(field.annotation) or field.annotation
@@ -69,6 +74,7 @@ def is_field_a(
 
 def get_field_type(field: "FieldInfo") -> type:
     assert field.annotation is not None, "Field annotation cannot be None"
-    if field.annotation.__name__ == "Optional":
-        return field.annotation.__args__[0]
+    optional_inner_type = _get_optional_inner_type(field.annotation)
+    if optional_inner_type is not None:
+        return optional_inner_type
     return get_origin(field.annotation) or field.annotation

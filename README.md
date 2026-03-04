@@ -7,7 +7,7 @@
 <!-- Badges (Row 1) -->
 <a href="https://pypi.python.org/pypi/argparse-dantic"><img src="https://img.shields.io/pypi/v/argparse-dantic"></a>
 <a href="https://pepy.tech/project/argparse-dantic"><img src="https://img.shields.io/pepy/dt/argparse-dantic?color=blue"></a>
-<a href="https://github.com/SupImDos/pydantic-argparse/blob/master/LICENSE"><img src="https://img.shields.io/github/license/ErloneAlpha/argparse-dantic"></a>
+<a href="https://github.com/ErloneAlpha/argparse-dantic/blob/master/LICENSE"><img src="https://img.shields.io/github/license/ErloneAlpha/argparse-dantic"></a>
 <br>
 </div>
 

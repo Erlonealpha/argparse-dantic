@@ -1,4 +1,9 @@
-from typing import TypedDict, Unpack
+from typing import TypedDict
+
+try:
+    from typing import Unpack
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Unpack
 
 __DefaultConfig = {
     "hyphenate_dest": True,

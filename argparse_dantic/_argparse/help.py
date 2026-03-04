@@ -1,7 +1,11 @@
 import os
 import re
 import argparse
-from typing import Optional, Self, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
+try:
+    from typing import Self
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Self
 from .actions import Action
 
 class HelpColors:
@@ -513,9 +517,9 @@ class HelpFormatter(argparse.HelpFormatter):
             action.field.argument_fields.env is not None:
             env_var = os.environ.get(action.field.argument_fields.env)
             if env_var is not None:
-                env = f"\[env: {action.field.argument_fields.env}={env_var}]" # type: ignore
+                env = f"\\[env: {action.field.argument_fields.env}={env_var}]" # type: ignore
             else:
-                env = f"\[env: {action.field.argument_fields.env}=]" # type: ignore
+                env = f"\\[env: {action.field.argument_fields.env}=]" # type: ignore
             if action.help is not None:
                 return f"{action.help} {env}"
             else:

@@ -83,7 +83,7 @@ _global_data_annotations_inst_map = {}
 class BaseModelMetaRewrite(ModelMetaclass):
     
     @classmethod
-    def __set_command_name_binds_names__(mcs, bases, namespace, annotations) -> None:
+    def __set_command_name_binds_names__(mcs, bases, namespace, annotations) -> set[str]:
         raise NotImplementedError()
 
     def __new__(
@@ -115,6 +115,7 @@ class BaseModelMetaRewrite(ModelMetaclass):
         # call we're in the middle of is for the `BaseModel` class.
         if bases:
             raw_annotations: dict[str, Any]
+            wrapped_annotate = None # type: ignore
             if sys.version_info >= (3, 14):
                 if (
                     '__annotations__' in namespace
@@ -126,6 +127,15 @@ class BaseModelMetaRewrite(ModelMetaclass):
 
                     if annotate := get_annotate_from_class_namespace(namespace):
                         raw_annotations = call_annotate_function(annotate, format=Format.FORWARDREF)
+                        command_name_binds_names = mcs.__set_command_name_binds_names__(bases, namespace, raw_annotations)
+                        
+                        def wrapped_annotate(format: Format):
+                            ann = call_annotate_function(annotate, format=format, owner=cls)
+                            for command_name in command_name_binds_names:
+                                ann[command_name] = str | None
+                            if 'global_data' in ann:
+                                ann['global_data'] = typing.ClassVar[dict[str, Any]]
+                            return ann
                     else:
                         raw_annotations = {}
             else:
@@ -148,11 +158,14 @@ class BaseModelMetaRewrite(ModelMetaclass):
                         _global_data_annotations_inst_map[global_data_ann] = {}
                     global_data_inst = _global_data_annotations_inst_map[global_data_ann]
                     namespace["global_data"] = global_data_inst
-                    raw_annotations["global_data"] = typing.ClassVar[dict[str, Any]]
+                raw_annotations["global_data"] = typing.ClassVar[dict[str, Any]]
             else:
                 global_data_annotations = None
 
-            mcs.__set_command_name_binds_names__(bases, namespace, raw_annotations)
+            if '__annotations__' in namespace:
+                command_name_binds_names = mcs.__set_command_name_binds_names__(bases, namespace, raw_annotations)
+                for command_name in command_name_binds_names:
+                    raw_annotations[command_name] = str | None
 
             base_field_names, class_vars, base_private_attributes = mcs._collect_bases_data(bases)
 
@@ -182,6 +195,9 @@ class BaseModelMetaRewrite(ModelMetaclass):
             namespace['__private_attributes__'] = {**base_private_attributes, **private_attributes}
 
             cls = cast('type[BaseModel]', ABCMeta.__new__(mcs, cls_name, bases, namespace))
+
+            if wrapped_annotate is not None:
+                cls.__annotate__ = wrapped_annotate # type: ignore
 
             BaseModel_ = import_cached_base_model()
 

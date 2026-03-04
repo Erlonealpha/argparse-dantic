@@ -35,8 +35,8 @@ class FieldTypes:
     MODEL = 'model'
     SUBCOMMAND = 'subcommand'
 
-type _FIELD_TYPE = typing.Literal['argument', 'model','subcommand']
-type _GROUP_TYPE = typing.Union[_Group, _MutuallyExclusiveGroup]
+_FIELD_TYPE = typing.Literal['argument', 'model','subcommand']
+_GROUP_TYPE = typing.Union[_Group, _MutuallyExclusiveGroup]
 
 class _FromFieldInfoInputs(TypedDict, total=False):
     """This class exists solely to add type checking for the `**kwargs` in `FieldInfo.from_field`."""
@@ -211,7 +211,7 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
                     # If the annotation is a BaseModel and `_field_type` is not set,
                     # Default to subcommand type.
                     _field_type = FieldTypes.SUBCOMMAND
-            else:
+            if _field_type is None:
                 # Default to argument type.
                 _field_type: _FIELD_TYPE = FieldTypes.ARGUMENT
         g = get_default_value
