@@ -50,6 +50,10 @@ def parse_field(
     """
     assert field.argument_fields is not None
     assert field.dest is not None
+    if field.argument_fields.metavar_default == "upper":
+        metavar = field.argument_fields.metavar or field.dest.upper()
+    else:
+        metavar = field.argument_fields.metavar
     # Add Container Field
     parser.add_argument(
         *utils.arguments.names(field),
@@ -57,7 +61,7 @@ def parse_field(
         nargs=argparse.ONE_OR_MORE,
         help=utils.arguments.normalize(field.argument_fields.help) or utils.arguments.help(field),
         dest=field.dest,
-        metavar=field.argument_fields.metavar or field.dest.upper(),
+        metavar=metavar,
         required=bool(field.argument_fields.required),
         field=field
     )

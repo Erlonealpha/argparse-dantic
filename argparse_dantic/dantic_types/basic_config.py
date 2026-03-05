@@ -7,6 +7,7 @@ except ImportError:  # pragma: no cover - Python < 3.11
 
 __DefaultConfig = {
     "hyphenate_dest": True,
+    "metavar_default": "empty",
     "connect_char": ".",
     "dest_prefix": "--",
     "aliases_prefix": "--",
@@ -19,6 +20,7 @@ _DefaultConfig = __DefaultConfig.copy()
 
 class ConfigDict(TypedDict, total=False):
     hyphenate_dest: bool
+    metavar_default: str
     connect_char: str
     dest_prefix: str
     aliases_prefix: str

@@ -982,7 +982,9 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
             field = model.__pydantic_fields__[k]
             if field.global_:
                 if field.model_fields is not None:
-                    getattr(model, "global_data")[k] = field.annotation.model_validate(v) # type: ignore
+                    field_model = utils.types.get_field_type(field)
+                    assert isinstance(field_model, BaseModel)
+                    getattr(model, "global_data")[k] = field_model.model_validate(v)
                 else:
                     getattr(model, "global_data")[k] = v
 

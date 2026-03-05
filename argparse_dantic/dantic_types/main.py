@@ -8,6 +8,7 @@ from pydantic._internal import _utils
 
 from ._construct import BaseModelMetaRewrite
 from .fields import Field, FieldInfo
+from ..utils import types
 
 _T = typing.TypeVar('_T')
 
@@ -142,7 +143,7 @@ def lookup_env_fields(fields: dict[str, FieldInfo]):
                 field.argument_fields.env in os.environ:
                 obj[name] = os.environ[field.argument_fields.env]
             elif field.command_fields is not None or field.model_fields is not None:
-                ann = typing.get_origin(field.annotation) or field.annotation
+                ann = types.get_field_type(field)
                 assert ann is not None
                 assert issubclass(ann, BaseModel), "AssertionError: field.annotation must be a BaseModel when it has command_fields or model_fields"
                 if name not in obj:
@@ -150,7 +151,7 @@ def lookup_env_fields(fields: dict[str, FieldInfo]):
                 else:
                     _obj = obj[name]
                 _lookup(ann.__pydantic_fields__, _obj)
-                if _obj:
+                if _obj and name not in obj:
                     obj[name] = _obj
 
     obj = {}

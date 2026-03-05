@@ -23,7 +23,7 @@ class MutuallyGroup(BaseModel, group=MGroup):
 
 class LoggingModel(BaseModel):
     level: Annotated[LogLevels, ArgumentField("l", default="info", description="Logging Level", env="ARGPARSE_DANTIC_TEST_LOG_LEVEL")]
-    file: Annotated[str, ArgumentField("f", default="app.log", description="Log File", env="ARGPARSE_DANTIC_TEST_LOG_FILE")]
+    file: Annotated[str, ArgumentField("f", default="app.log", metavar="FILE", description="Log File", env="ARGPARSE_DANTIC_TEST_LOG_FILE")]
 
 class GlobalModel(MutuallyGroup):
     global_data: GlobalData
