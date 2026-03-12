@@ -192,3 +192,6 @@ if __name__ == "__main__":
 
 ## License
 This project is licensed under the terms of the MIT license.
+
+## Thanks
+Thanks to [Pydantic](https://github.com/samuelcolvin/pydantic) and [Rich](https://github.com/willmcgugan/rich) for making this project possible.
