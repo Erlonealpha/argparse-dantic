@@ -134,9 +134,9 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
     aliases_prefix: str
     hyphenate_dest: bool
     group: _GROUP_TYPE | None
-    argument_fields: ArgumentFieldInfo
-    command_fields: CommandFieldInfo
-    model_fields: ModelFieldInfo
+    argument_fields: ArgumentFieldInfo | None
+    command_fields: CommandFieldInfo | None
+    model_fields: ModelFieldInfo | None
     global_: bool
 
     __slots__ = (
@@ -221,6 +221,22 @@ _T = typing.TypeVar('_T')
 def Field(
     default: EllipsisType,
     *,
+    aliases: list[str] | None = _Unset,
+    allow_none: bool | None = _Unset,
+    help: str | None = _Unset,
+    env: str | None = _Unset,
+    required: bool | None = _Unset,
+    metavar: str | None = _Unset,
+    metavar_default: typing.Literal['empty', 'notset', 'upper'] = _Unset,
+    prog: str | None = _Unset,
+    usage: str | None = _Unset,
+    epilog: str | None = _Unset,
+    prefix_chars: str | None = _Unset,
+    add_help: bool | None = _Unset,
+    exit_on_error: bool | None = _Unset,
+    version: str | None = _Unset,
+    connect_char: str | None = _Unset,
+    hyphenate_dest: bool = True,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
     validation_alias: str | AliasPath | AliasChoices | None = _Unset,
@@ -255,6 +271,12 @@ def Field(
     max_length: int | None = _Unset,
     union_mode: typing.Literal['smart', 'left_to_right'] = _Unset,
     fail_fast: bool | None = _Unset,
+    **extra: Unpack[_EmptyKwargs],
+) -> typing.Any: ...
+@typing.overload  # `default` argument set, validate_default=True (no type checking on the default value)
+def Field(
+    default: typing.Any,
+    *,
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
@@ -270,12 +292,7 @@ def Field(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
-    **extra: Unpack[_EmptyKwargs],
-) -> typing.Any: ...
-@typing.overload  # `default` argument set, validate_default=True (no type checking on the default value)
-def Field(
-    default: typing.Any,
-    *,
+    hyphenate_dest: bool = True,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
     validation_alias: str | AliasPath | AliasChoices | None = _Unset,
@@ -310,6 +327,12 @@ def Field(
     max_length: int | None = _Unset,
     union_mode: typing.Literal['smart', 'left_to_right'] = _Unset,
     fail_fast: bool | None = _Unset,
+    **extra: Unpack[_EmptyKwargs],
+) -> typing.Any: ...
+@typing.overload  # `default` argument set, validate_default=False or unset
+def Field(
+    default: _T,
+    *,
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
@@ -325,12 +348,7 @@ def Field(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
-    **extra: Unpack[_EmptyKwargs],
-) -> typing.Any: ...
-@typing.overload  # `default` argument set, validate_default=False or unset
-def Field(
-    default: _T,
-    *,
+    hyphenate_dest: bool = True,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
     validation_alias: str | AliasPath | AliasChoices | None = _Unset,
@@ -368,6 +386,11 @@ def Field(
     max_length: int | None = _Unset,
     union_mode: typing.Literal['smart', 'left_to_right'] = _Unset,
     fail_fast: bool | None = _Unset,
+    **extra: Unpack[_EmptyKwargs],
+) -> _T: ...
+@typing.overload  # `default_factory` argument set, validate_default=True  (no type checking on the default value)
+def Field(  # pyright: ignore[reportOverlappingOverload]
+    *,
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
@@ -383,11 +406,7 @@ def Field(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
-    **extra: Unpack[_EmptyKwargs],
-) -> _T: ...
-@typing.overload  # `default_factory` argument set, validate_default=True  (no type checking on the default value)
-def Field(  # pyright: ignore[reportOverlappingOverload]
-    *,
+    hyphenate_dest: bool = True,
     default_factory: typing.Callable[[], typing.Any] | typing.Callable[[dict[str, typing.Any]], typing.Any],
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
@@ -423,6 +442,11 @@ def Field(  # pyright: ignore[reportOverlappingOverload]
     max_length: int | None = _Unset,
     union_mode: typing.Literal['smart', 'left_to_right'] = _Unset,
     fail_fast: bool | None = _Unset,
+    **extra: Unpack[_EmptyKwargs],
+) -> typing.Any: ...
+@typing.overload  # `default_factory` argument set, validate_default=False or unset
+def Field(
+    *,
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
@@ -438,11 +462,7 @@ def Field(  # pyright: ignore[reportOverlappingOverload]
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
-    **extra: Unpack[_EmptyKwargs],
-) -> typing.Any: ...
-@typing.overload  # `default_factory` argument set, validate_default=False or unset
-def Field(
-    *,
+    hyphenate_dest: bool = True,
     default_factory: typing.Callable[[], _T] | typing.Callable[[dict[str, typing.Any]], _T],
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
@@ -481,6 +501,11 @@ def Field(
     max_length: int | None = _Unset,
     union_mode: typing.Literal['smart', 'left_to_right'] = _Unset,
     fail_fast: bool | None = _Unset,
+    **extra: Unpack[_EmptyKwargs],
+) -> _T: ...
+@typing.overload
+def Field(  # No default set
+    *,
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
@@ -496,11 +521,7 @@ def Field(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
-    **extra: Unpack[_EmptyKwargs],
-) -> _T: ...
-@typing.overload
-def Field(  # No default set
-    *,
+    hyphenate_dest: bool = True,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
     validation_alias: str | AliasPath | AliasChoices | None = _Unset,
@@ -535,6 +556,11 @@ def Field(  # No default set
     max_length: int | None = _Unset,
     union_mode: typing.Literal['smart', 'left_to_right'] = _Unset,
     fail_fast: bool | None = _Unset,
+    **extra: Unpack[_EmptyKwargs],
+) -> typing.Any: ...
+def Field(  # noqa: C901
+    default: typing.Any = PydanticUndefined,
+    *,
     aliases: list[str] | None = _Unset,
     allow_none: bool | None = _Unset,
     help: str | None = _Unset,
@@ -550,11 +576,7 @@ def Field(  # No default set
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
-    **extra: Unpack[_EmptyKwargs],
-) -> typing.Any: ...
-def Field(  # noqa: C901
-    default: typing.Any = PydanticUndefined,
-    *,
+    hyphenate_dest: bool = True,
     default_factory: typing.Callable[[], typing.Any] | typing.Callable[[dict[str, typing.Any]], typing.Any] | None = _Unset,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
@@ -590,21 +612,6 @@ def Field(  # noqa: C901
     max_length: int | None = _Unset,
     union_mode: typing.Literal['smart', 'left_to_right'] = _Unset,
     fail_fast: bool | None = _Unset,
-    aliases: list[str] | None = _Unset,
-    allow_none: bool | None = _Unset,
-    help: str | None = _Unset,
-    env: str | None = _Unset,
-    required: bool | None = _Unset,
-    metavar: str | None = _Unset,
-    metavar_default: typing.Literal['empty', 'notset', 'upper'] = _Unset,
-    prog: str | None = _Unset,
-    usage: str | None = _Unset,
-    epilog: str | None = _Unset,
-    prefix_chars: str | None = _Unset,
-    add_help: bool | None = _Unset,
-    exit_on_error: bool | None = _Unset,
-    version: str | None = _Unset,
-    connect_char: str | None = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     """!!! abstract "Usage Documentation"
@@ -715,6 +722,7 @@ def ArgumentField(
     max_length: int | None = None,
     union_mode: typing.Literal['smart', 'left_to_right'] = "smart",
     fail_fast: bool | None = None,
+    hyphenate_dest: bool = True,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     ...
@@ -734,6 +742,7 @@ def CommandField(
     description: str | None = None,
     deprecated: Deprecated | str | bool | None = None,
     fail_fast: bool | None = None,
+    hyphenate_dest: bool = True,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     ...
@@ -742,6 +751,7 @@ def ModelField(
     aliases: list[str] | None = [],
     connect_char: str | None = ".",
     fail_fast: bool | None = None,
+    hyphenate_dest: bool = True,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     ...

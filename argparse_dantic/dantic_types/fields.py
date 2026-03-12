@@ -568,6 +568,7 @@ def Field(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any: ...
 @typing.overload  # `default` argument set, validate_default=True (no type checking on the default value)
@@ -623,6 +624,7 @@ def Field(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any: ...
 @typing.overload  # `default` argument set, validate_default=False or unset
@@ -681,6 +683,7 @@ def Field(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> _T: ...
 @typing.overload  # `default_factory` argument set, validate_default=True  (no type checking on the default value)
@@ -736,6 +739,7 @@ def Field(  # pyright: ignore[reportOverlappingOverload]
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any: ...
 @typing.overload  # `default_factory` argument set, validate_default=False or unset
@@ -794,6 +798,7 @@ def Field(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> _T: ...
 @typing.overload
@@ -848,6 +853,7 @@ def Field(  # No default set
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any: ...
 def Field(  # noqa: C901
@@ -903,6 +909,7 @@ def Field(  # noqa: C901
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     """!!! abstract "Usage Documentation"
@@ -1117,6 +1124,7 @@ def Field(  # noqa: C901
         exit_on_error=exit_on_error,
         version=version,
         connect_char=connect_char,
+        hyphenate_dest=hyphenate_dest,
         _field_type=_field_type,
     )
 
@@ -1159,6 +1167,7 @@ def ArgumentField(
     required: bool | None = _Unset,
     metavar: str | None = _Unset,
     metavar_default: typing.Literal['empty', 'notset', 'upper'] = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     if names:
@@ -1203,7 +1212,8 @@ def ArgumentField(
         metavar_default=metavar_default,
         allow_none=allow_none,
         aliases=aliases,
-        _field_type = FieldTypes.ARGUMENT,
+        _field_type=FieldTypes.ARGUMENT,
+        hyphenate_dest=hyphenate_dest,
         **extra
     )
 
@@ -1222,6 +1232,7 @@ def CommandField(
     exit_on_error: bool | None = _Unset,
     version: str | None = _Unset,
     help: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     return Field( # type: ignore
@@ -1240,7 +1251,8 @@ def CommandField(
         add_help=add_help,
         exit_on_error=exit_on_error,
         version=version,
-        _field_type = FieldTypes.SUBCOMMAND,
+        _field_type=FieldTypes.SUBCOMMAND,
+        hyphenate_dest=hyphenate_dest,
         **extra
     )
 
@@ -1248,6 +1260,7 @@ def ModelField(
     fail_fast: bool | None = _Unset,
     aliases: list[str] | None = _Unset,
     connect_char: str | None = _Unset,
+    hyphenate_dest: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     return Field( # type: ignore
@@ -1256,5 +1269,6 @@ def ModelField(
         aliases=aliases,
         connect_char=connect_char,
         _field_type=FieldTypes.MODEL,
+        hyphenate_dest=hyphenate_dest,
         **extra
     )
