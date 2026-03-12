@@ -26,5 +26,6 @@ def parse_field(
     assert field.annotation is not None
     assert field.dest is not None
     assert field.model_fields is not None
+    dest = field.dest.replace('_', '-') if field.hyphenate_dest else field.dest
     # Add Sub-Model to Parser's Sub-Models List
-    parser._add_sub_model(field.dest, field.model_fields.connect_char, utils.types.get_origin(field.annotation) or field.annotation)
+    parser._add_sub_model(dest, field.model_fields.connect_char, utils.types.get_origin(field.annotation) or field.annotation)

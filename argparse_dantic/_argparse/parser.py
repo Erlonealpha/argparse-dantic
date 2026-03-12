@@ -980,7 +980,7 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
         
         def _global_check(k, v, model: Type[PydanticModelT]):
             field = model.__pydantic_fields__[k]
-            if field.global_:
+            if field._global:
                 if field.model_fields is not None:
                     field_model = utils.types.get_field_type(field)
                     assert isinstance(field_model, BaseModel)
@@ -1182,7 +1182,7 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
             # Add field
             validator = add_field(field)
 
-            if field.global_ and field.dest not in (_global_data := getattr(model, "global_data")):
+            if field._global and field.dest not in (_global_data := getattr(model, "global_data")):
                 # Set default value for global data
                 _global_data[field.dest] = field.get_default()
 
@@ -1270,7 +1270,7 @@ class ArgumentParser(argparse._AttributeHolder, container._ActionsContainer, Gen
             group_actions = action_group._group_actions.copy()
             for i in range(len(group_actions) - 1, -1, -1):
                 field = group_actions[i].field
-                if field is not None and field.global_:
+                if field is not None and field._global:
                     global_actions.append(group_actions.pop(i))
             if not group_actions:
                 continue

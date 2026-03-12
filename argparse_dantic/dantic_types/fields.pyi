@@ -78,6 +78,7 @@ class _FromFieldInfoInputs(TypedDict, total=False):
     dest_prefix: str
     aliases_prefix: str
     hyphenate_dest: bool
+    include_dest_in_names: bool
 
     aliases: list[str] | None
     allow_none: bool | None
@@ -133,11 +134,12 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
     dest_prefix: str
     aliases_prefix: str
     hyphenate_dest: bool
+    include_dest_in_names: bool
     group: _GROUP_TYPE | None
     argument_fields: ArgumentFieldInfo | None
     command_fields: CommandFieldInfo | None
     model_fields: ModelFieldInfo | None
-    global_: bool
+    _global: bool
 
     __slots__ = (
         'annotation',
@@ -172,7 +174,7 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
         'argument_fields',
         'command_fields',
         'model_fields',
-        'global_',
+        '_global',
         '_attributes_set',
         '_qualifiers',
         '_complete',
@@ -237,6 +239,7 @@ def Field(
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
     validation_alias: str | AliasPath | AliasChoices | None = _Unset,
@@ -293,6 +296,7 @@ def Field(
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
     validation_alias: str | AliasPath | AliasChoices | None = _Unset,
@@ -349,6 +353,7 @@ def Field(
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
     validation_alias: str | AliasPath | AliasChoices | None = _Unset,
@@ -407,6 +412,7 @@ def Field(  # pyright: ignore[reportOverlappingOverload]
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     default_factory: typing.Callable[[], typing.Any] | typing.Callable[[dict[str, typing.Any]], typing.Any],
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
@@ -463,6 +469,7 @@ def Field(
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     default_factory: typing.Callable[[], _T] | typing.Callable[[dict[str, typing.Any]], _T],
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
@@ -522,6 +529,7 @@ def Field(  # No default set
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
     validation_alias: str | AliasPath | AliasChoices | None = _Unset,
@@ -577,6 +585,7 @@ def Field(  # noqa: C901
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     default_factory: typing.Callable[[], typing.Any] | typing.Callable[[dict[str, typing.Any]], typing.Any] | None = _Unset,
     alias: str | None = _Unset,
     alias_priority: int | None = _Unset,
@@ -693,6 +702,8 @@ def ArgumentField(
     required: bool | None = False,
     metavar: str | None = None,
     metavar_default: typing.Literal['empty', 'notset', 'upper'] = "empty",
+    hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     default_factory: typing.Callable[[], typing.Any] | typing.Callable[[dict[str, typing.Any]], typing.Any] | None = None,
     alias: str | None = None,
     alias_priority: int | None = None,
@@ -722,9 +733,31 @@ def ArgumentField(
     max_length: int | None = None,
     union_mode: typing.Literal['smart', 'left_to_right'] = "smart",
     fail_fast: bool | None = None,
-    hyphenate_dest: bool = True,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
+    """
+    Create a field for basic command-line arguments
+
+    Note:
+        - Destination name is the name of the field (`FieldInfo.dest`).
+
+    Args (Only `argpase-dantic` specific arguments are listed here, see `Field` for the rest):
+        names: The names of the argument. Same as `aliases`, names and aliases only need to be specified once.
+        default: Default value if the argument is not set.
+        aliases: The names of the argument. Same as `names`, names and aliases only need to be specified once.
+        allow_none: Whether the argument can be set to `None`.
+        help: A help string for the argument.
+        env: The name of the environment variable to use for the argument.
+        required: Whether the argument is required.
+        metavar: The name to use for the argument in the help message.
+        metavar_default: The default value for the `metavar` argument.
+        hyphenate_dest: Whether to hyphenate the destination name for the argument.
+        include_dest_in_names: Whether to include the destination name in the argument names.
+            (If `False`, you must provide names for the argument.)
+
+    Returns:
+        A new [`FieldInfo`][argparse_dantic.dantic_types.fields.FieldInfo].
+    """
     ...
 
 def CommandField(
@@ -737,21 +770,56 @@ def CommandField(
     exit_on_error: bool | None = True,
     version: str | None = None,
     help: str | None = None,
+    hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
     title: str | None = None,
     field_title_generator: typing.Callable[[str, FieldInfo], str] | None = None,
     description: str | None = None,
     deprecated: Deprecated | str | bool | None = None,
     fail_fast: bool | None = None,
-    hyphenate_dest: bool = True,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
+    """
+    Create a field for a sub-command.
+
+    Args (Only `argpase-dantic` specific arguments are listed here, see `Field` for the rest):
+        aliases: The names of the command.
+        prog: The name of the program (default: the name of the script).
+        usage: A usage message for the command.
+        epilog: Text to display after the argument help.
+        prefix_chars: The set of characters that prefix optional arguments.
+        add_help: Whether to add a `-h` or `--help` option to the command.
+        exit_on_error: Whether to exit the program on error.
+        version: The version of the program.
+        help: A help string for the command.
+        hyphenate_dest: Whether to hyphenate the destination name for the command.
+        include_dest_in_names: Whether to include the destination name in the command names.
+            (If `False`, you must provide names for the command.)
+
+    Returns:
+        A new [`FieldInfo`][argparse_dantic.dantic_types.fields.FieldInfo].
+    """
     ...
 
 def ModelField(
     aliases: list[str] | None = [],
     connect_char: str | None = ".",
-    fail_fast: bool | None = None,
     hyphenate_dest: bool = True,
+    include_dest_in_names: bool = True,
+    fail_fast: bool | None = None,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
+    """
+    Create a field for a nested model.
+
+    Args (Only `argpase-dantic` specific arguments are listed here, see `Field` for the rest):
+        aliases: The names of the model. (!!!Not used in `ModelField` now)
+        connect_char: The character to use to connect the parent model to the nested model.
+        hyphenate_dest: Whether to hyphenate the destination name for the model.
+        include_dest_in_names: Whether to include the destination name in the model names. (!!!Not used in `ModelField` now)
+            (If `False`, you must provide names for the model.
+
+    Returns:
+        A new [`FieldInfo`][argparse_dantic.dantic_types.fields.FieldInfo].
+    """
     ...

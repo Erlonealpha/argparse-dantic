@@ -34,11 +34,12 @@ def names(field: "FieldInfo", invert: bool = False) -> list[str]:
     flags: list[str] = []
     flags.extend(map(alias_flag, field.aliases))
 
-    assert field.dest is not None
-    # Construct prefix, prepend it, replace '_' with '-'
-    dest = field.dest.replace('_', '-') if field.hyphenate_dest else field.dest
-    prefix = f"{dest_prefix}no-" if invert else dest_prefix
-    flags.append(f"{prefix}{dest}")
+    if field.include_dest_in_names:
+        assert field.dest is not None
+        # Construct prefix, prepend it, replace '_' with '-'
+        dest = field.dest.replace('_', '-') if field.hyphenate_dest else field.dest
+        prefix = f"{dest_prefix}no-" if invert else dest_prefix
+        flags.append(f"{prefix}{dest}")
 
     # Return the standardised name and aliases
     return flags

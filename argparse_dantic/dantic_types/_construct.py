@@ -318,7 +318,7 @@ class BaseModelMetaRewrite(ModelMetaclass):
                 for global_data_name in global_data_annotations.keys():
                     cls.__argparse_dantic_global_fields_names__.add(global_data_name)
                     try:
-                        cls.__pydantic_fields__[global_data_name].global_ = True
+                        cls.__pydantic_fields__[global_data_name]._global = True
                     except KeyError:
                         raise ValueError(f"Cannot find specified global_data field '{global_data_name}' in model")
             elif not hasattr(cls, 'global_data'):

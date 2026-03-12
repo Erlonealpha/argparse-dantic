@@ -85,6 +85,7 @@ class _FromFieldInfoInputs(TypedDict, total=False):
     dest_prefix: str
     aliases_prefix: str
     hyphenate_dest: bool
+    include_dest_in_names: bool
 
     aliases: list[str] | None
     allow_none: bool | None
@@ -185,11 +186,11 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
         'dest_prefix',
         'aliases_prefix',
         'hyphenate_dest',
+        'include_dest_in_names',
         'group',
         'argument_fields',
         'command_fields',
         'model_fields',
-        'global_',
         '_attributes_set',
         '_qualifiers',
         '_complete',
@@ -197,6 +198,7 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
         '_original_annotation',
         '_final',
         '_field_type'
+        '_global',
     )
 
     def __init__(self, default: typing.Any = _Unset, **kwargs):
@@ -218,19 +220,20 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
                 # Default to argument type.
                 _field_type: _FIELD_TYPE = FieldTypes.ARGUMENT
         g = get_default_value
-        dest =                typing.cast(str | None,            kwargs.pop('dest',            g('dest')))
-        group =               typing.cast(_GROUP_TYPE | None,    kwargs.pop('group',           g('group')))
-        aliases =             typing.cast(list[str],             kwargs.pop('aliases',         g('aliases')))
-        dest_prefix =         typing.cast(str | None,            kwargs.pop('dest_prefix',     g('dest_prefix')))
-        aliases_prefix =      typing.cast(str | None,            kwargs.pop('aliases_prefix',  g('aliases_prefix')))
-        hyphenate_dest =      typing.cast(bool,                  kwargs.pop('hyphenate_dest',  g('hyphenate_dest')))
+        dest =                  typing.cast(str | None,            kwargs.pop('dest',            g('dest')))
+        group =                 typing.cast(_GROUP_TYPE | None,    kwargs.pop('group',           g('group')))
+        aliases =               typing.cast(list[str],             kwargs.pop('aliases',         g('aliases')))
+        dest_prefix =           typing.cast(str | None,            kwargs.pop('dest_prefix',     g('dest_prefix')))
+        aliases_prefix =        typing.cast(str | None,            kwargs.pop('aliases_prefix',  g('aliases_prefix')))
+        hyphenate_dest =        typing.cast(bool,                  kwargs.pop('hyphenate_dest',  g('hyphenate_dest')))
+        include_dest_in_names = typing.cast(bool,                  kwargs.pop('include_dest_in_names', g('include_dest_in_names')))
         if _field_type == FieldTypes.ARGUMENT:
-            help =            typing.cast(str | None,            kwargs.pop('help',            g('help')))
-            required =        typing.cast(bool,                  kwargs.pop('required',        g('required')))
-            allow_none =      typing.cast(bool,                  kwargs.pop('allow_none',      g('allow_none')))
-            metavar =         typing.cast(str | None,            kwargs.pop('metavar',         g('metavar')))
-            metavar_default = typing.cast(_METAVAR_DEFAULT_TYPE, kwargs.pop('metavar_default', g('metavar_default')))
-            env =             typing.cast(str | None,            kwargs.pop('env',             g('env')))
+            help =              typing.cast(str | None,            kwargs.pop('help',            g('help')))
+            required =          typing.cast(bool,                  kwargs.pop('required',        g('required')))
+            allow_none =        typing.cast(bool,                  kwargs.pop('allow_none',      g('allow_none')))
+            metavar =           typing.cast(str | None,            kwargs.pop('metavar',         g('metavar')))
+            metavar_default =   typing.cast(_METAVAR_DEFAULT_TYPE, kwargs.pop('metavar_default', g('metavar_default')))
+            env =               typing.cast(str | None,            kwargs.pop('env',             g('env')))
             if not required and default is _Unset:
                 # If the required is False, we want to set default to None, not _Unset.
                 # That new pydantic will not raise missing value error.
@@ -246,15 +249,15 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
             )
         elif _field_type == FieldTypes.SUBCOMMAND:
             default = None
-            prog =            typing.cast(str | None,            kwargs.pop('prog',          g("prog")))
-            usage =           typing.cast(str | None,            kwargs.pop('usage',         g("usage")))
-            help =            typing.cast(str | None,            kwargs.pop('help',          g("help")))
-            description =     typing.cast(str | None,            kwargs.get('description',   g("description")))
-            epilog =          typing.cast(str | None,            kwargs.pop('epilog',        g("epilog")))
-            prefix_chars =    typing.cast(str,                   kwargs.pop('prefix_chars',  g("prefix_chars")))
-            add_help =        typing.cast(bool,                  kwargs.pop('add_help',      g("add_help")))
-            exit_on_error =   typing.cast(bool,                  kwargs.pop('exit_on_error', g("exit_on_error")))
-            version =         typing.cast(str | None,            kwargs.pop('version',       g("version")))
+            prog =              typing.cast(str | None,            kwargs.pop('prog',          g("prog")))
+            usage =             typing.cast(str | None,            kwargs.pop('usage',         g("usage")))
+            help =              typing.cast(str | None,            kwargs.pop('help',          g("help")))
+            description =       typing.cast(str | None,            kwargs.get('description',   g("description")))
+            epilog =            typing.cast(str | None,            kwargs.pop('epilog',        g("epilog")))
+            prefix_chars =      typing.cast(str,                   kwargs.pop('prefix_chars',  g("prefix_chars")))
+            add_help =          typing.cast(bool,                  kwargs.pop('add_help',      g("add_help")))
+            exit_on_error =     typing.cast(bool,                  kwargs.pop('exit_on_error', g("exit_on_error")))
+            version =           typing.cast(str | None,            kwargs.pop('version',       g("version")))
             _command_fields = CommandFieldInfo(
                 aliases=aliases,
                 prog=prog,
@@ -268,13 +271,16 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
                 exit_on_error=exit_on_error,
             )
         elif _field_type == FieldTypes.MODEL:
-            connect_char =    typing.cast(str,                   kwargs.pop('connect_char',  g("connect_char")))
+            connect_char =      typing.cast(str,                   kwargs.pop('connect_char',  g("connect_char")))
             _model_fields = ModelFieldInfo(
                 aliases=aliases,
                 connect_char=connect_char,
             )
         else:
             raise ValueError(f"Invalid field type {_field_type}")
+
+        if not include_dest_in_names and not aliases:
+            raise TypeError('Aliases must be provided if include_dest_in_names is False.')
 
         super().__init__(default=default, **kwargs) # type: ignore
         self._attributes_set.update(_attributes_set)
@@ -286,10 +292,11 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
         self.dest_prefix = dest_prefix
         self.aliases_prefix = aliases_prefix
         self.hyphenate_dest = hyphenate_dest
+        self.include_dest_in_names = include_dest_in_names
         self.argument_fields: "ArgumentFieldInfo | None" = _argument_fields
         self.command_fields: "CommandFieldInfo | None" = _command_fields
         self.model_fields: "ModelFieldInfo | None" = _model_fields
-        self.global_ = False
+        self._global = False
 
     @staticmethod
     def from_field(default: typing.Any = PydanticUndefined, **kwargs: Unpack[_FromFieldInfoInputs]) -> "FieldInfo": # type: ignore
@@ -569,6 +576,7 @@ def Field(
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any: ...
 @typing.overload  # `default` argument set, validate_default=True (no type checking on the default value)
@@ -625,6 +633,7 @@ def Field(
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any: ...
 @typing.overload  # `default` argument set, validate_default=False or unset
@@ -684,6 +693,7 @@ def Field(
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> _T: ...
 @typing.overload  # `default_factory` argument set, validate_default=True  (no type checking on the default value)
@@ -740,6 +750,7 @@ def Field(  # pyright: ignore[reportOverlappingOverload]
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any: ...
 @typing.overload  # `default_factory` argument set, validate_default=False or unset
@@ -799,6 +810,7 @@ def Field(
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> _T: ...
 @typing.overload
@@ -854,6 +866,7 @@ def Field(  # No default set
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any: ...
 def Field(  # noqa: C901
@@ -910,6 +923,7 @@ def Field(  # noqa: C901
     version: str | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     """!!! abstract "Usage Documentation"
@@ -1125,6 +1139,7 @@ def Field(  # noqa: C901
         version=version,
         connect_char=connect_char,
         hyphenate_dest=hyphenate_dest,
+        include_dest_in_names=include_dest_in_names,
         _field_type=_field_type,
     )
 
@@ -1168,6 +1183,7 @@ def ArgumentField(
     metavar: str | None = _Unset,
     metavar_default: typing.Literal['empty', 'notset', 'upper'] = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     if names:
@@ -1214,6 +1230,7 @@ def ArgumentField(
         aliases=aliases,
         _field_type=FieldTypes.ARGUMENT,
         hyphenate_dest=hyphenate_dest,
+        include_dest_in_names=include_dest_in_names,
         **extra
     )
 
@@ -1233,6 +1250,7 @@ def CommandField(
     version: str | None = _Unset,
     help: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     return Field( # type: ignore
@@ -1253,6 +1271,7 @@ def CommandField(
         version=version,
         _field_type=FieldTypes.SUBCOMMAND,
         hyphenate_dest=hyphenate_dest,
+        include_dest_in_names=include_dest_in_names,
         **extra
     )
 
@@ -1261,6 +1280,7 @@ def ModelField(
     aliases: list[str] | None = _Unset,
     connect_char: str | None = _Unset,
     hyphenate_dest: bool = _Unset,
+    include_dest_in_names: bool = _Unset,
     **extra: Unpack[_EmptyKwargs],
 ) -> typing.Any:
     return Field( # type: ignore
@@ -1270,5 +1290,6 @@ def ModelField(
         connect_char=connect_char,
         _field_type=FieldTypes.MODEL,
         hyphenate_dest=hyphenate_dest,
+        include_dest_in_names=include_dest_in_names,
         **extra
     )
