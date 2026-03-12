@@ -197,7 +197,7 @@ class FieldInfo(PydanticFieldInfo): # type: ignore
         '_original_assignment',
         '_original_annotation',
         '_final',
-        '_field_type'
+        '_field_type',
         '_global',
     )
 
